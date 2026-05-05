@@ -1,0 +1,110 @@
+Build a simple mobile-friendly web app called **“StormCheck Kanata”**.
+
+### Core Purpose
+
+The app gives **real-time snow accumulation updates specifically for Camp Kanata (Wake Forest, NC)**. It should be extremely simple, fast, and focused only on accumulation.
+
+---
+
+### Main Features
+
+1. **One-Tap Update Button**
+
+* Button labeled: “Check Again”
+* When pressed, it fetches and displays the latest:
+
+  * Snow so far (inches)
+  * Snow still expected (inches)
+  * Total expected accumulation (inches)
+
+---
+
+2. **Minimal Output Display**
+   Show ONLY:
+
+* “Snow so far: X inches”
+* “Still to come: X inches”
+* “Total expected: X–X inches”
+
+No extra text, no explanations, no clutter.
+
+---
+
+3. **Location Lock**
+
+* Hardcode location to:
+  Camp Kanata / Wake Forest, NC (ZIP ~27587)
+* Do NOT allow changing location
+
+---
+
+4. **Data Source Logic**
+
+* Pull data from a weather API (like OpenWeather, NWS, or WeatherAPI)
+* Combine:
+
+  * Current snowfall observations (if available)
+  * Forecast snowfall totals
+* If exact “snow so far” isn’t available:
+
+  * Estimate using hourly snowfall accumulation
+
+---
+
+5. **Smart Calculation**
+
+* Snow so far = sum of past snowfall today
+* Still to come = remaining forecast snowfall
+* Total = combined range (low–high estimate)
+
+---
+
+6. **Auto Refresh Option**
+
+* Toggle: ON/OFF
+* If ON → updates every 10 minutes
+
+---
+
+7. **Simple UI Design**
+
+* Clean, dark mode
+* Big numbers (easy to read quickly)
+* No ads, no distractions
+* Mobile-first layout
+
+---
+
+8. **Error Handling**
+
+* If API fails:
+  Show: “Data unavailable – try again”
+
+---
+
+### Bonus Features (if easy)
+
+* Small snowfall graph (hour-by-hour)
+* “Peak snow time” indicator
+* Notification when accumulation changes significantly
+
+---
+
+### Behavior Style
+
+* Fast
+* Minimal
+* No fluff
+* Designed for quick checks during storms
+
+---
+
+### Example Output
+
+Snow so far: 1.2 inches
+Still to come: 3.8 inches
+Total expected: 4–6 inches
+
+---
+
+Build this as a lightweight web app (React or simple HTML/JS) that can run instantly and be easily deployed.

@@ -25,3 +25,20 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - `pnpm --filter @workspace/api-server run dev` — run API server locally
 
 See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details.
+
+## Artifacts
+
+### Winter Watch Kanata (`artifacts/winter-watch`)
+- **Preview path**: `/`
+- **Type**: react-vite, frontend-only (no backend)
+- **Purpose**: Snow accumulation tracker for Camp Kanata, Wake Forest, NC (ZIP 27587)
+- **Data source**: Open-Meteo free API (no API key needed), returns hourly snowfall in cm, converted to inches
+- **Location**: Hardcoded to lat 35.9771, lon -78.5097
+- **Features**:
+  - Snow so far / Still to come / Total expected range
+  - Hour-by-hour bar chart (past = gray, future = blue)
+  - Peak snow time indicator
+  - Check Again button
+  - Auto-refresh toggle (10-minute interval)
+  - Error handling with user-friendly message
+- **Theme**: Dark mode, blues and gray palette
