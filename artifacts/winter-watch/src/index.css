@@ -61,7 +61,7 @@
   * { @apply border-border; }
   body {
     @apply font-sans antialiased text-foreground;
-    background: linear-gradient(150deg, #07111f 0%, #0b1e3a 40%, #0e1e35 65%, #101825 100%);
+    background: #0b1628;
     min-height: 100vh;
   }
 }
