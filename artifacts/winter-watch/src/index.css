@@ -61,7 +61,7 @@
   * { @apply border-border; }
   body {
     @apply font-sans antialiased text-foreground;
-    background: #0b1628;
+    background: #0b1628 url('/frost-bg.jpg') center / cover no-repeat fixed;
     min-height: 100vh;
   }
 }

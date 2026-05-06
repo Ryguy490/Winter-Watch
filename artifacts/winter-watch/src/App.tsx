@@ -300,15 +300,18 @@ export default function App() {
       <div className="w-full mb-7 text-center">
         {MOCK_MODE && (
           <div className="inline-block mb-3 px-3 py-1 rounded-full text-[10px] font-semibold tracking-widest uppercase"
-            style={{ background: "rgba(251,191,36,0.10)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.22)" }}>
+            style={{ background: "rgba(10,22,44,0.70)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.30)", backdropFilter: "blur(6px)" }}>
             Preview · Mock Storm Data
           </div>
         )}
-        <div className="flex items-center justify-center gap-2.5 mb-1">
-          <SwirlIcon />
-          <h1 className="text-2xl font-bold tracking-tight">Winter Watch</h1>
+        <div className="inline-flex flex-col items-center gap-1 rounded-2xl px-6 py-4"
+          style={{ background: "rgba(8,18,38,0.72)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.10)" }}>
+          <div className="flex items-center gap-2.5 mb-0.5">
+            <SwirlIcon />
+            <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
+          </div>
+          <p className="text-sm" style={{ color: "#93c5fd" }}>{LOCATION_LABEL}</p>
         </div>
-        <p className="text-sm text-muted-foreground">{LOCATION_LABEL}</p>
       </div>
 
       {/* Stats card */}
