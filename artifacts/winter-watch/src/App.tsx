@@ -308,7 +308,14 @@ export default function App() {
         <div className="inline-flex flex-col items-center gap-1 rounded-2xl px-6 py-4"
           style={{ background: "rgba(8,18,38,0.72)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.10)" }}>
           <div className="flex items-center gap-2.5 mb-0.5">
-            <WeatherLogo />
+            <img
+              src="/winter-watch-icon.png"
+              alt=""
+              width={40}
+              height={40}
+              className="rounded-[22%] object-cover"
+              aria-hidden="true"
+            />
             <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
           </div>
           <p className="text-sm" style={{ color: "#93c5fd" }}>{LOCATION_LABEL}</p>
@@ -428,23 +435,6 @@ function Spinner({ small }: { small?: boolean }) {
     <svg className={`animate-spin ${small ? "w-4 h-4" : "w-6 h-6 text-primary"}`} fill="none" viewBox="0 0 24 24">
       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-    </svg>
-  );
-}
-
-// Navy weather badge with a gray cloud and a snowflake
-function WeatherLogo() {
-  return (
-    <svg viewBox="0 0 36 36" width="34" height="34" fill="none"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <rect x="1" y="1" width="34" height="34" rx="10"
-        fill="#0b1c35" stroke="#526985" strokeWidth="1.2" />
-      <path d="M7.2 25.3a4.8 4.8 0 0 1 .4-9.6 7 7 0 0 1 13.1-1.2 5.4 5.4 0 1 1 .1 10.8H7.2Z"
-        fill="#9aa8ba" stroke="#c0cbd8" strokeWidth="1" />
-      <g stroke="#e2efff" strokeWidth="1.35">
-        <path d="M25.2 5.5v10.4M20.7 8.1l9 5.2M29.7 8.1l-9 5.2" />
-        <path d="m25.2 5.5-1.5 1.6m1.5-1.6 1.5 1.6M20.7 8.1l2.2.1m-2.2-.1.8 2M29.7 8.1l-2.2.1m2.2-.1-.8 2" />
-      </g>
     </svg>
   );
 }
