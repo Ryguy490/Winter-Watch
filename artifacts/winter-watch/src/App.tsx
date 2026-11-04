@@ -16,13 +16,23 @@ interface HourPoint {
   isPast: boolean;
 }
 
-interface SnowData {
-  soFar: number;
-  stillToCome: number;
-  totalLow: number;
-  totalHigh: number;
-  peakHour: string | null;
+type PrecipSelection = "rain" | "mixed" | "snow" | "ice" | "total";
+type PrecipTotals = Record<PrecipSelection, number>;
+
+interface DayOption {
+  key: string;
+  label: string;
+}
+
+interface DayForecast {
+  key: string;
   points: HourPoint[];
+  totals: PrecipTotals;
+  peakHour: string | null;
+}
+
+interface SnowData {
+  days: DayForecast[];
   lastUpdated: Date;
 }
 
@@ -39,6 +49,14 @@ const LEGEND_ITEMS: { type: PrecipType; label: string }[] = [
   { type: "mixed", label: "Mixed" },
   { type: "snow",  label: "Snow"  },
   { type: "ice",   label: "Ice"   },
+];
+
+const PRECIP_SELECTIONS: { value: PrecipSelection; label: string }[] = [
+  { value: "rain", label: "Rain" },
+  { value: "mixed", label: "Mixed" },
+  { value: "snow", label: "Snow" },
+  { value: "ice", label: "Ice" },
+  { value: "total", label: "Total" },
 ];
 
 const MOCK_POINTS: HourPoint[] = [
@@ -68,29 +86,99 @@ const MOCK_POINTS: HourPoint[] = [
   { label: "11PM", temp: 36, precip: 0.00, type: "none",  isPast: false },
 ];
 
-function computeStats(points: HourPoint[]): SnowData {
-  let soFar = 0, stillToCome = 0;
-  for (const p of points) {
-    if (p.isPast) soFar += p.precip;
-    else stillToCome += p.precip;
+function getDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function dateFromKey(key: string): Date {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function getDayOptions(todayKey: string): DayOption[] {
+  return Array.from({ length: 8 }, (_, index) => {
+    const offset = index - 1;
+    const date = dateFromKey(todayKey);
+    date.setDate(date.getDate() + offset);
+    return {
+      key: getDateKey(date),
+      label: offset === -1
+        ? "Yesterday"
+        : offset === 0
+          ? "Today"
+          : date.toLocaleDateString(undefined, { weekday: "long" }),
+    };
+  });
+}
+
+function createDayForecast(key: string, points: HourPoint[]): DayForecast {
+  const totals: PrecipTotals = { rain: 0, mixed: 0, snow: 0, ice: 0, total: 0 };
+  for (const point of points) {
+    if (point.type === "none") continue;
+    totals[point.type] += point.precip;
+    totals.total += point.precip;
   }
-  const total = soFar + stillToCome;
-  const peak = points.filter((p) => !p.isPast && p.precip > 0).sort((a, b) => b.precip - a.precip)[0];
+  const peak = points
+    .filter((point) => !point.isPast && point.type === "snow" && point.precip > 0)
+    .sort((a, b) => b.precip - a.precip)[0];
+
   return {
-    soFar:       round1(soFar),
-    stillToCome: round1(stillToCome),
-    totalLow:    round1(Math.max(0, total * 0.85)),
-    totalHigh:   round1(total * 1.15),
-    peakHour:    peak?.label ?? null,
+    key,
     points,
-    lastUpdated: new Date(),
+    totals: {
+      rain: round1(totals.rain),
+      mixed: round1(totals.mixed),
+      snow: round1(totals.snow),
+      ice: round1(totals.ice),
+      total: round1(totals.total),
+    },
+    peakHour: peak?.label ?? null,
   };
 }
 
-async function fetchSnowData(): Promise<SnowData> {
+function buildMockDays(todayKey: string): DayForecast[] {
+  const currentHour = new Date().getHours();
+  return getDayOptions(todayKey).map((day, index) => {
+    const offset = index - 1;
+    const amountScale = offset === 0 ? 1 : offset === -1 ? 0.45 : offset === 1 ? 0.35 : 0;
+    const points = MOCK_POINTS.map((point, hour) => ({
+      ...point,
+      precip: Math.round(point.precip * amountScale * 100) / 100,
+      isPast: offset < 0 || (offset === 0 && hour <= currentHour),
+    }));
+    return createDayForecast(day.key, points);
+  });
+}
+
+function getMetricStats(day: DayForecast | null, selection: PrecipSelection) {
+  let soFar = 0;
+  let stillToCome = 0;
+  if (day) {
+    for (const point of day.points) {
+      const matches = selection === "total"
+        ? point.type !== "none"
+        : point.type === selection;
+      if (!matches) continue;
+      if (point.isPast) soFar += point.precip;
+      else stillToCome += point.precip;
+    }
+  }
+  const total = round1(soFar + stillToCome);
+  return {
+    soFar: round1(soFar),
+    stillToCome: round1(stillToCome),
+    totalLow: round1(Math.max(0, total * 0.85)),
+    totalHigh: round1(total * 1.15),
+  };
+}
+
+async function fetchSnowData(todayKey: string): Promise<SnowData> {
   if (MOCK_MODE) {
     await new Promise((r) => setTimeout(r, 500));
-    return computeStats(MOCK_POINTS);
+    return { days: buildMockDays(todayKey), lastUpdated: new Date() };
   }
 
   const url = new URL("https://api.open-meteo.com/v1/forecast");
@@ -99,7 +187,7 @@ async function fetchSnowData(): Promise<SnowData> {
   url.searchParams.set("hourly", "snowfall,temperature_2m,precipitation,weathercode");
   url.searchParams.set("temperature_unit", "fahrenheit");
   url.searchParams.set("timezone", "America/New_York");
-  url.searchParams.set("forecast_days", "2");
+  url.searchParams.set("forecast_days", "7");
   url.searchParams.set("past_days", "1");
 
   const res = await fetch(url.toString());
@@ -108,34 +196,40 @@ async function fetchSnowData(): Promise<SnowData> {
 
   const times: string[]  = json.hourly?.time ?? [];
   const snowCm: number[] = json.hourly?.snowfall ?? [];
+  const precipMm: number[] = json.hourly?.precipitation ?? [];
   const temps: number[]  = json.hourly?.temperature_2m ?? [];
   const codes: number[]  = json.hourly?.weathercode ?? [];
 
   const now = new Date();
-  const startOfToday = new Date(now); startOfToday.setHours(0, 0, 0, 0);
-  const endOfTomorrow = new Date(startOfToday); endOfTomorrow.setDate(endOfTomorrow.getDate() + 2);
-
-  let soFar = 0, stillToCome = 0;
-  const points: HourPoint[] = [];
+  const dayKeys = new Set(getDayOptions(todayKey).map((day) => day.key));
+  const groupedPoints = new Map<string, HourPoint[]>();
 
   for (let i = 0; i < times.length; i++) {
+    const key = times[i].slice(0, 10);
+    if (!dayKeys.has(key)) continue;
     const time = new Date(times[i]);
-    if (time < startOfToday || time >= endOfTomorrow) continue;
-    const inches = cmToInches(snowCm[i] ?? 0);
     const temp   = temps[i] ?? 32;
+    const type = wmoToPrecipType(codes[i] ?? 0, temp);
+    const inches = type === "snow"
+      ? cmToInches(snowCm[i] ?? 0)
+      : type === "none"
+        ? 0
+        : mmToInches(precipMm[i] ?? 0);
     const isPast = time <= now;
-    if (isPast) soFar += inches; else stillToCome += inches;
-    points.push({ label: formatHour(time), temp, precip: inches, type: wmoToPrecipType(codes[i] ?? 0, temp), isPast });
+    const points = groupedPoints.get(key) ?? [];
+    points.push({ label: formatHour(time), temp, precip: inches, type, isPast });
+    groupedPoints.set(key, points);
   }
 
-  const total = soFar + stillToCome;
-  const peak = points.filter((p) => !p.isPast && p.precip > 0).sort((a, b) => b.precip - a.precip)[0];
-  return { soFar: round1(soFar), stillToCome: round1(stillToCome), totalLow: round1(Math.max(0, total * 0.8)), totalHigh: round1(total * 1.2), peakHour: peak?.label ?? null, points, lastUpdated: new Date() };
+  const days = getDayOptions(todayKey).map((day) =>
+    createDayForecast(day.key, groupedPoints.get(day.key) ?? [])
+  );
+  return { days, lastUpdated: new Date() };
 }
 
 function wmoToPrecipType(code: number, temp: number): PrecipType {
   if ([0,1,2,3].includes(code)) return "none";
-  if (code === 56 || code === 57) return "ice";
+  if ([56, 57, 66, 67].includes(code)) return "ice";
   if (code >= 71 && code <= 77)  return "snow";
   if (code >= 85 && code <= 86)  return "snow";
   if (code >= 51 && code <= 67)  return temp <= 32 ? "mixed" : "rain";
@@ -144,6 +238,7 @@ function wmoToPrecipType(code: number, temp: number): PrecipType {
 }
 
 function cmToInches(cm: number)  { return cm * 0.393701; }
+function mmToInches(mm: number)  { return mm * 0.0393701; }
 function round1(n: number)       { return Math.round(n * 10) / 10; }
 function formatHour(d: Date)     { return d.toLocaleTimeString([], { hour: "numeric", hour12: true }); }
 function formatTime(d: Date)     { return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }); }
@@ -271,14 +366,24 @@ export default function App() {
   const [data, setData] = useState<SnowData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
+  const [selectedDayKey, setSelectedDayKey] = useState(() => getDateKey(new Date()));
+  const [precipSelection, setPrecipSelection] = useState<PrecipSelection>("snow");
   const requestInProgressRef = useRef(false);
+
+  const dayOptions = getDayOptions(todayKey);
+  const selectedDay = data?.days.find((day) => day.key === selectedDayKey) ?? null;
+  const metrics = getMetricStats(selectedDay, precipSelection);
+  const metricName = precipSelection === "total"
+    ? "Precipitation"
+    : PRECIP_SELECTIONS.find((option) => option.value === precipSelection)?.label ?? "Snow";
 
   const load = useCallback(async (showLoading = true) => {
     if (requestInProgressRef.current) return;
     requestInProgressRef.current = true;
     if (showLoading) setLoading(true);
     try {
-      setData(await fetchSnowData());
+      setData(await fetchSnowData(todayKey));
       setError(null);
     } catch {
       setError("Data unavailable – showing the last successful update");
@@ -286,7 +391,17 @@ export default function App() {
       requestInProgressRef.current = false;
       if (showLoading) setLoading(false);
     }
-  }, []);
+  }, [todayKey]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const nextTodayKey = getDateKey(new Date());
+      if (nextTodayKey === todayKey) return;
+      setTodayKey(nextTodayKey);
+      setSelectedDayKey((current) => current === todayKey ? nextTodayKey : current);
+    }, 60 * 1000);
+    return () => clearInterval(interval);
+  }, [todayKey]);
 
   useEffect(() => {
     void load();
@@ -340,29 +455,84 @@ export default function App() {
             {error && (
               <p className="text-xs text-amber-200/80 text-center">{error}</p>
             )}
-            <StatRow label="Snow so far"   value={data.soFar} />
+
+            <div className="space-y-3">
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Day
+                </p>
+                <div className="grid grid-cols-4 gap-1.5" role="group" aria-label="Choose forecast day">
+                  {dayOptions.map(({ key, label }) => {
+                    const selected = selectedDayKey === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setSelectedDayKey(key)}
+                        className={`min-w-0 rounded-lg border px-1 py-2 text-[10px] font-semibold leading-tight transition-colors ${
+                          selected
+                            ? "border-blue-300/70 bg-blue-400/25 text-white"
+                            : "border-white/10 bg-white/[0.04] text-muted-foreground hover:text-white"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Precipitation type
+                </p>
+                <div className="grid grid-cols-5 gap-1.5" role="group" aria-label="Choose precipitation type">
+                  {PRECIP_SELECTIONS.map(({ value, label }) => {
+                    const selected = precipSelection === value;
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setPrecipSelection(value)}
+                        className={`rounded-lg border px-1 py-2 text-[10px] font-semibold transition-colors ${
+                          selected
+                            ? "border-blue-300/70 bg-blue-400/25 text-white"
+                            : "border-white/10 bg-white/[0.04] text-muted-foreground hover:text-white"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <StatRow label={`${metricName} so far`} value={metrics.soFar} />
             <div className="h-px bg-border" />
-            <StatRow label="Still to come" value={data.stillToCome} />
+            <StatRow label={`${metricName} to come`} value={metrics.stillToCome} />
             <div className="h-px bg-border" />
 
             <div className="flex items-baseline justify-between">
               <span className="text-muted-foreground text-sm font-medium">Total expected</span>
               <span className="text-3xl font-bold text-primary tabular-nums">
-                {data.totalLow}–{data.totalHigh}
+                {metrics.totalLow}–{metrics.totalHigh}
                 <span className="text-base font-normal text-muted-foreground ml-1">in</span>
               </span>
             </div>
 
-            {data.peakHour && (
+            {selectedDay?.peakHour && (
               <div className="rounded-xl px-4 py-2.5 flex items-center justify-between"
                 style={{ background: "rgba(30,58,95,0.55)" }}>
                 <span className="text-xs text-muted-foreground">Peak snow time</span>
-                <span className="text-xs font-semibold">{data.peakHour}</span>
+                <span className="text-xs font-semibold">{selectedDay.peakHour}</span>
               </div>
             )}
 
-            {/* Chart */}
-            {data.points.length > 0 && (
+            {/* Selected-day hourly chart, with a totals-only fallback */}
+            {selectedDay && selectedDay.points.length >= 2 ? (
               <div className="mt-1">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">Hour-by-hour</p>
@@ -378,7 +548,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <WeatherChart points={data.points} />
+                <WeatherChart points={selectedDay.points} />
 
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
                   {LEGEND_ITEMS.map(({ type, label }) => (
@@ -392,6 +562,8 @@ export default function App() {
                   </div>
                 </div>
               </div>
+            ) : (
+              <PrecipitationTotals day={selectedDay} />
             )}
 
             <p className="text-[10px] text-muted-foreground/60 text-right">
@@ -426,6 +598,40 @@ function StatRow({ label, value }: { label: string; value: number }) {
         {value.toFixed(1)}
         <span className="text-base font-normal text-muted-foreground ml-1">in</span>
       </span>
+    </div>
+  );
+}
+
+function PrecipitationTotals({ day }: { day: DayForecast | null }) {
+  const categories = [
+    { type: "snow", label: "Snow" },
+    { type: "mixed", label: "Mixed" },
+    { type: "ice", label: "Ice" },
+    { type: "rain", label: "Rain" },
+  ] as const;
+
+  return (
+    <div className="mt-1 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+      <p className="mb-2 text-xs font-medium text-muted-foreground">
+        Hourly graph unavailable · daily totals
+      </p>
+      {day ? (
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+          {categories.map(({ type, label }) => (
+            <div key={type} className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="h-2 w-2 rounded-full" style={{ background: PRECIP_COLORS[type] }} />
+                {label}
+              </span>
+              <span className="text-xs font-semibold tabular-nums">
+                {day.totals[type].toFixed(1)} in
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground">No daily totals are available for this date.</p>
+      )}
     </div>
   );
 }
