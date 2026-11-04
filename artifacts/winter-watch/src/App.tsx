@@ -28,7 +28,7 @@ interface SnowData {
 
 const PRECIP_COLORS: Record<PrecipType, string> = {
   snow:  "#60a5fa",
-  ice:   "#94a3b8",
+  ice:   "#f472b6",
   rain:  "#4ade80",
   mixed: "#c084fc",
   none:  "#1e3a5f",
@@ -236,23 +236,9 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
         );
       })}
 
-      {/* Precip dots */}
-      {points.map((p, i) =>
-        p.type !== "none" ? (
-          <circle key={`pd-${i}`} cx={f(precipPts[i].x)} cy={f(precipPts[i].y)}
-            r="2.2" fill={PRECIP_COLORS[p.type]} />
-        ) : null
-      )}
-
       {/* Temperature — single smooth amber line */}
       <path d={smoothPath(tempPts)}
         fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.88" />
-
-      {/* Temp dots (every 4 hrs) */}
-      {tempPts.map((pt, i) => i % 4 === 0 ? (
-        <circle key={`td-${i}`} cx={f(pt.x)} cy={f(pt.y)} r="2.2"
-          fill="#fbbf24" opacity="0.9" />
-      ) : null)}
 
       {/* Left Y axis — temperature */}
       {[24, 30, 36, 42].map((t) => (
@@ -322,7 +308,7 @@ export default function App() {
         <div className="inline-flex flex-col items-center gap-1 rounded-2xl px-6 py-4"
           style={{ background: "rgba(8,18,38,0.72)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.10)" }}>
           <div className="flex items-center gap-2.5 mb-0.5">
-            <SwirlIcon />
+            <WeatherLogo />
             <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
           </div>
           <p className="text-sm" style={{ color: "#93c5fd" }}>{LOCATION_LABEL}</p>
@@ -395,8 +381,6 @@ export default function App() {
                     </div>
                   ))}
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
-                      style={{ background: "rgba(148,163,184,0.18)", border: "1px solid rgba(148,163,184,0.65)" }} />
                     <span className="text-[10px] text-muted-foreground">Past hours</span>
                   </div>
                 </div>
@@ -448,19 +432,19 @@ function Spinner({ small }: { small?: boolean }) {
   );
 }
 
-// Blue/gray swirl logo — concentric arcs spiraling inward
-function SwirlIcon() {
+// Navy weather badge with a gray cloud and a snowflake
+function WeatherLogo() {
   return (
-    <svg viewBox="0 0 28 28" width="28" height="28" fill="none"
-      strokeLinecap="round" strokeLinejoin="round">
-      {/* Outer arc — deep blue, ~300° sweep */}
-      <path d="M 14 3 A 11 11 0 1 1 5.5 19.5" stroke="#2563eb" strokeWidth="2.4" />
-      {/* Middle arc — medium blue, ~270° sweep, smaller radius */}
-      <path d="M 14 7 A 7 7 0 1 1 8.5 18.6" stroke="#60a5fa" strokeWidth="2" />
-      {/* Inner arc — blue-gray, ~240° sweep */}
-      <path d="M 14 10.5 A 3.5 3.5 0 1 1 10.9 17" stroke="#93c5fd" strokeWidth="1.7" />
-      {/* Center dot — slate gray */}
-      <circle cx="14" cy="14" r="1.4" fill="#94a3b8" />
+    <svg viewBox="0 0 36 36" width="34" height="34" fill="none"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="1" y="1" width="34" height="34" rx="10"
+        fill="#0b1c35" stroke="#526985" strokeWidth="1.2" />
+      <path d="M7.2 25.3a4.8 4.8 0 0 1 .4-9.6 7 7 0 0 1 13.1-1.2 5.4 5.4 0 1 1 .1 10.8H7.2Z"
+        fill="#9aa8ba" stroke="#c0cbd8" strokeWidth="1" />
+      <g stroke="#e2efff" strokeWidth="1.35">
+        <path d="M25.2 5.5v10.4M20.7 8.1l9 5.2M29.7 8.1l-9 5.2" />
+        <path d="m25.2 5.5-1.5 1.6m1.5-1.6 1.5 1.6M20.7 8.1l2.2.1m-2.2-.1.8 2M29.7 8.1l-2.2.1m2.2-.1-.8 2" />
+      </g>
     </svg>
   );
 }
