@@ -196,11 +196,20 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
   const nowX = lastPastIdx >= 0 && lastPastIdx < n - 1
     ? ptX(lastPastIdx + 0.5, n)
     : -1;
+  const pastEndX = lastPastIdx >= 0
+    ? (nowX > LP ? nowX : LP + CW)
+    : LP;
 
   const xAxisTicks = [0, 4, 8, 12, 16, 20].filter((i) => i < n);
 
   return (
     <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ overflow: "visible" }}>
+      {/* Shade the historical chart area without changing either line color */}
+      {pastEndX > LP && (
+        <rect x={LP} y={TP} width={pastEndX - LP} height={CH}
+          fill="#94a3b8" opacity="0.18" />
+      )}
+
       {/* Horizontal grid lines */}
       {[24, 30, 36, 42].map((t) => (
         <line key={t} x1={LP} y1={tempY(t)} x2={LP + CW} y2={tempY(t)}
@@ -216,7 +225,7 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
         </>
       )}
 
-      {/* Precipitation — smooth colored segments */}
+      {/* Precipitation — line color shows precipitation type */}
       {points.map((p, i) => {
         if (i === n - 1) return null;
         const { cp1, cp2 } = catmullControlPoints(precipPts, i);
@@ -235,14 +244,15 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
         ) : null
       )}
 
-      {/* Temperature — single smooth path */}
+      {/* Temperature — single smooth amber line */}
       <path d={smoothPath(tempPts)}
         fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.88" />
 
       {/* Temp dots (every 4 hrs) */}
-      {tempPts.filter((_, i) => i % 4 === 0).map((pt, k) => (
-        <circle key={`td-${k}`} cx={f(pt.x)} cy={f(pt.y)} r="2.2" fill="#fbbf24" opacity="0.9" />
-      ))}
+      {tempPts.map((pt, i) => i % 4 === 0 ? (
+        <circle key={`td-${i}`} cx={f(pt.x)} cy={f(pt.y)} r="2.2"
+          fill="#fbbf24" opacity="0.9" />
+      ) : null)}
 
       {/* Left Y axis — temperature */}
       {[24, 30, 36, 42].map((t) => (
@@ -275,23 +285,28 @@ export default function App() {
   const [data, setData] = useState<SnowData | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoRefresh, setAutoRefresh] = useState(false);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const requestInProgressRef = useRef(false);
 
-  const load = useCallback(async () => {
-    setLoading(true); setError(null);
-    try { setData(await fetchSnowData()); }
-    catch { setError("Data unavailable – try again"); }
-    finally { setLoading(false); }
+  const load = useCallback(async (showLoading = true) => {
+    if (requestInProgressRef.current) return;
+    requestInProgressRef.current = true;
+    if (showLoading) setLoading(true);
+    try {
+      setData(await fetchSnowData());
+      setError(null);
+    } catch {
+      setError("Data unavailable – showing the last successful update");
+    } finally {
+      requestInProgressRef.current = false;
+      if (showLoading) setLoading(false);
+    }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-
   useEffect(() => {
-    if (autoRefresh) { intervalRef.current = setInterval(load, 10 * 60 * 1000); }
-    else { if (intervalRef.current) clearInterval(intervalRef.current); }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [autoRefresh, load]);
+    void load();
+    const interval = setInterval(() => void load(false), 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [load]);
 
   return (
     <div className="min-h-screen flex flex-col items-center px-4 py-10 max-w-md mx-auto">
@@ -317,7 +332,7 @@ export default function App() {
       {/* Stats card */}
       <div className="w-full rounded-2xl border border-border p-6 mb-5 shadow-lg"
         style={{ background: "rgba(10,22,44,0.88)", backdropFilter: "blur(8px)" }}>
-        {error ? (
+        {error && !data ? (
           <div className="flex flex-col items-center gap-2 py-4 text-center">
             <AlertIcon />
             <p className="text-destructive text-sm font-medium">{error}</p>
@@ -329,6 +344,9 @@ export default function App() {
           </div>
         ) : data ? (
           <div className="space-y-4">
+            {error && (
+              <p className="text-xs text-amber-200/80 text-center">{error}</p>
+            )}
             <StatRow label="Snow so far"   value={data.soFar} />
             <div className="h-px bg-border" />
             <StatRow label="Still to come" value={data.stillToCome} />
@@ -376,6 +394,11 @@ export default function App() {
                       <span className="text-[10px] text-muted-foreground">{label}</span>
                     </div>
                   ))}
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-sm flex-shrink-0"
+                      style={{ background: "rgba(148,163,184,0.18)", border: "1px solid rgba(148,163,184,0.65)" }} />
+                    <span className="text-[10px] text-muted-foreground">Past hours</span>
+                  </div>
                 </div>
               </div>
             )}
@@ -388,7 +411,7 @@ export default function App() {
       </div>
 
       {/* Check Again */}
-      <button onClick={load} disabled={loading}
+      <button onClick={() => void load()} disabled={loading}
         className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 mb-4 shadow-md"
         style={{ background: "hsl(210 82% 58%)", color: "hsl(220 30% 7%)" }}>
         {loading ? (
@@ -396,19 +419,9 @@ export default function App() {
         ) : "Check Again"}
       </button>
 
-      {/* Auto Refresh */}
-      <div className="w-full flex items-center justify-between px-1">
-        <div>
-          <p className="text-sm font-medium">Auto Refresh</p>
-          <p className="text-xs text-muted-foreground">Updates every 10 minutes</p>
-        </div>
-        <button onClick={() => setAutoRefresh((v) => !v)}
-          className={`relative w-12 h-6 rounded-full transition-colors duration-300 focus:outline-none ${autoRefresh ? "bg-primary" : "bg-muted"}`}
-          role="switch" aria-checked={autoRefresh}>
-          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-300 ${autoRefresh ? "translate-x-6" : "translate-x-0"}`} />
-        </button>
-      </div>
-      {autoRefresh && <p className="text-xs text-primary/80 w-full px-1 mt-1.5">Auto-refresh is on</p>}
+      <p className="w-full px-1 text-xs text-muted-foreground text-center">
+        Updates automatically every 5 minutes
+      </p>
     </div>
   );
 }
