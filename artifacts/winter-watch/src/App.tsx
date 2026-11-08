@@ -168,6 +168,7 @@ function getMetricStats(day: DayForecast | null, selection: PrecipSelection) {
   }
   const total = round1(soFar + stillToCome);
   return {
+    total,
     soFar: round1(soFar),
     stillToCome: round1(stillToCome),
     totalLow: round1(Math.max(0, total * 0.85)),
@@ -282,10 +283,11 @@ function f(n: number) { return n.toFixed(2); }
 // ── Weather Chart ─────────────────────────────────────────────────────────────
 function WeatherChart({ points }: { points: HourPoint[] }) {
   const n = points.length;
-  if (n < 2) return null;
-
-  const tempPts  = points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp) }));
-  const precipPts = points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip) }));
+  const hasGraphData = n >= 2;
+  const tempPts  = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp) })) : [];
+  const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip) })) : [];
+  const hasPrecipitation = points.some((point) => point.precip > 0);
+  const noPrecipitationColor = "#a1a1aa";
 
   const lastPastIdx = points.reduce((acc, p, i) => (p.isPast ? i : acc), -1);
   const nowX = lastPastIdx >= 0 && lastPastIdx < n - 1
@@ -299,6 +301,12 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
 
   return (
     <svg viewBox={`0 0 ${VW} ${VH}`} width="100%" style={{ overflow: "visible" }}>
+      <defs>
+        <pattern id="no-graph-hatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+          <line x1="0" y1="0" x2="0" y2="10" stroke="#9ca3af" strokeWidth="2" opacity="0.42" />
+        </pattern>
+      </defs>
+
       {/* Shade the historical chart area without changing either line color */}
       {pastEndX > LP && (
         <rect x={LP} y={TP} width={pastEndX - LP} height={CH}
@@ -321,19 +329,19 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
       )}
 
       {/* Precipitation — line color shows precipitation type */}
-      {points.map((p, i) => {
+      {hasGraphData && points.map((p, i) => {
         if (i === n - 1) return null;
         const { cp1, cp2 } = catmullControlPoints(precipPts, i);
         const segPath = `M ${f(precipPts[i].x)} ${f(precipPts[i].y)} C ${f(cp1.x)} ${f(cp1.y)}, ${f(cp2.x)} ${f(cp2.y)}, ${f(precipPts[i+1].x)} ${f(precipPts[i+1].y)}`;
         return (
           <path key={`pr-${i}`} d={segPath}
-            fill="none" stroke={PRECIP_COLORS[p.type]} strokeWidth="2.4" strokeLinecap="round" />
+            fill="none" stroke={hasPrecipitation ? PRECIP_COLORS[p.type] : noPrecipitationColor} strokeWidth="2.4" strokeLinecap="round" />
         );
       })}
 
       {/* Temperature — single smooth amber line */}
-      <path d={smoothPath(tempPts)}
-        fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.88" />
+      {hasGraphData && <path d={smoothPath(tempPts)}
+        fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.88" />}
 
       {/* Left Y axis — temperature */}
       {[24, 30, 36, 42].map((t) => (
@@ -348,10 +356,21 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
       ))}
 
       {/* X axis labels */}
-      {xAxisTicks.map((i) => (
+      {hasGraphData && xAxisTicks.map((i) => (
         <text key={`xl-${i}`} x={f(ptX(i, n))} y={VH - 4}
           textAnchor="middle" fontSize="7" fill="#64748b">{points[i].label}</text>
       ))}
+
+      {!hasGraphData && (
+        <>
+          <rect x={LP} y={TP} width={CW} height={CH} fill="#64748b" opacity="0.18" />
+          <rect x={LP} y={TP} width={CW} height={CH} fill="url(#no-graph-hatch)" />
+          <text x={LP + CW / 2} y={TP + CH / 2} textAnchor="middle" dominantBaseline="middle"
+            fontSize="10" fontWeight="700" fill="#e2e8f0" stroke="#0b1628" strokeWidth="2.5" paintOrder="stroke">
+            No Graph Data Available
+          </text>
+        </>
+      )}
 
       {/* Axes */}
       <line x1={LP} y1={TP} x2={LP} y2={TP + CH} stroke="#1e3a5f" strokeWidth="1" />
@@ -374,6 +393,10 @@ export default function App() {
   const dayOptions = getDayOptions(todayKey);
   const selectedDay = data?.days.find((day) => day.key === selectedDayKey) ?? null;
   const metrics = getMetricStats(selectedDay, precipSelection);
+  const isTodaySelected = selectedDayKey === todayKey;
+  const yesterdayDate = dateFromKey(todayKey);
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const isYesterdaySelected = selectedDayKey === getDateKey(yesterdayDate);
   const metricName = precipSelection === "total"
     ? "Precipitation"
     : PRECIP_SELECTIONS.find((option) => option.value === precipSelection)?.label ?? "Snow";
@@ -510,15 +533,25 @@ export default function App() {
               </div>
             </div>
 
-            <StatRow label={`${metricName} so far`} value={metrics.soFar} />
-            <div className="h-px bg-border" />
-            <StatRow label={`${metricName} to come`} value={metrics.stillToCome} />
-            <div className="h-px bg-border" />
+            {isTodaySelected && (
+              <>
+                <StatRow label={`${metricName} so far`} value={metrics.soFar} />
+                <div className="h-px bg-border" />
+                <StatRow label={`${metricName} to come`} value={metrics.stillToCome} />
+                <div className="h-px bg-border" />
+              </>
+            )}
 
             <div className="flex items-baseline justify-between">
-              <span className="text-muted-foreground text-sm font-medium">Total expected</span>
+              <span className="text-muted-foreground text-sm font-medium">
+                {isTodaySelected ? "Total expected" : "Total"}
+              </span>
               <span className="text-3xl font-bold text-primary tabular-nums">
-                {metrics.totalLow}–{metrics.totalHigh}
+                {metrics.total === 0
+                  ? "0"
+                  : isYesterdaySelected
+                    ? metrics.total.toFixed(1)
+                    : `${metrics.totalLow}–${metrics.totalHigh}`}
                 <span className="text-base font-normal text-muted-foreground ml-1">in</span>
               </span>
             </div>
@@ -532,7 +565,7 @@ export default function App() {
             )}
 
             {/* Selected-day hourly chart, with a totals-only fallback */}
-            {selectedDay && selectedDay.points.length >= 2 ? (
+            {(
               <div className="mt-1">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">Hour-by-hour</p>
@@ -548,7 +581,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <WeatherChart points={selectedDay.points} />
+                <WeatherChart points={selectedDay?.points ?? []} />
 
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
                   {LEGEND_ITEMS.map(({ type, label }) => (
@@ -562,11 +595,9 @@ export default function App() {
                   </div>
                 </div>
               </div>
-            ) : (
-              <PrecipitationTotals day={selectedDay} />
             )}
 
-            <p className="text-[10px] text-muted-foreground/60 text-right">
+            <p className="text-[10px] text-right" style={{ color: "#cbd5e1" }}>
               Updated {formatTime(data.lastUpdated)}
             </p>
           </div>
@@ -595,7 +626,7 @@ function StatRow({ label, value }: { label: string; value: number }) {
     <div className="flex items-baseline justify-between">
       <span className="text-muted-foreground text-sm font-medium">{label}</span>
       <span className="text-3xl font-bold tabular-nums">
-        {value.toFixed(1)}
+        {value === 0 ? "0" : value.toFixed(1)}
         <span className="text-base font-normal text-muted-foreground ml-1">in</span>
       </span>
     </div>
