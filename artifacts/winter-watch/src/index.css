@@ -45,7 +45,7 @@
   --secondary-foreground: 210 30% 82%;
 
   --muted: 215 20% 14%;
-  --muted-foreground: 210 22% 52%;
+  --muted-foreground: 210 25% 68%;
 
   --accent: 200 72% 46%;
   --accent-foreground: 210 40% 97%;
@@ -61,7 +61,13 @@
   * { @apply border-border; }
   body {
     @apply font-sans antialiased text-foreground;
-    background: #0b1628 url('/winter-background.jpg') center / cover no-repeat fixed;
+    background-color: #0b1628;
+    background-image: url('/winter-background.jpg');
+    background-position: center center;
+    background-size: cover;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    image-rendering: auto;
     min-height: 100vh;
   }
 }
