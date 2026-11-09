@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const MOCK_MODE = true;
-
 const CAMP_LAT = 35.9771;
 const CAMP_LON = -78.5097;
 const LOCATION_LABEL = "Camp Kanata · Wake Forest, NC";
@@ -59,33 +57,6 @@ const PRECIP_SELECTIONS: { value: PrecipSelection; label: string }[] = [
   { value: "total", label: "Total" },
 ];
 
-const MOCK_POINTS: HourPoint[] = [
-  { label: "12AM", temp: 38, precip: 0.10, type: "rain",  isPast: true  },
-  { label: "1AM",  temp: 37, precip: 0.15, type: "rain",  isPast: true  },
-  { label: "2AM",  temp: 36, precip: 0.20, type: "rain",  isPast: true  },
-  { label: "3AM",  temp: 35, precip: 0.15, type: "mixed", isPast: true  },
-  { label: "4AM",  temp: 34, precip: 0.22, type: "mixed", isPast: true  },
-  { label: "5AM",  temp: 33, precip: 0.28, type: "mixed", isPast: true  },
-  { label: "6AM",  temp: 32, precip: 0.38, type: "snow",  isPast: true  },
-  { label: "7AM",  temp: 31, precip: 0.48, type: "snow",  isPast: true  },
-  { label: "8AM",  temp: 30, precip: 0.55, type: "snow",  isPast: true  },
-  { label: "9AM",  temp: 29, precip: 0.60, type: "snow",  isPast: true  },
-  { label: "10AM", temp: 28, precip: 0.55, type: "snow",  isPast: false },
-  { label: "11AM", temp: 27, precip: 0.45, type: "snow",  isPast: false },
-  { label: "12PM", temp: 26, precip: 0.22, type: "ice",   isPast: false },
-  { label: "1PM",  temp: 26, precip: 0.18, type: "ice",   isPast: false },
-  { label: "2PM",  temp: 27, precip: 0.38, type: "snow",  isPast: false },
-  { label: "3PM",  temp: 28, precip: 0.42, type: "snow",  isPast: false },
-  { label: "4PM",  temp: 29, precip: 0.32, type: "snow",  isPast: false },
-  { label: "5PM",  temp: 30, precip: 0.22, type: "snow",  isPast: false },
-  { label: "6PM",  temp: 31, precip: 0.12, type: "snow",  isPast: false },
-  { label: "7PM",  temp: 32, precip: 0.06, type: "snow",  isPast: false },
-  { label: "8PM",  temp: 33, precip: 0.02, type: "snow",  isPast: false },
-  { label: "9PM",  temp: 34, precip: 0.00, type: "none",  isPast: false },
-  { label: "10PM", temp: 35, precip: 0.00, type: "none",  isPast: false },
-  { label: "11PM", temp: 36, precip: 0.00, type: "none",  isPast: false },
-];
-
 function getDateKey(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -139,20 +110,6 @@ function createDayForecast(key: string, points: HourPoint[]): DayForecast {
   };
 }
 
-function buildMockDays(todayKey: string): DayForecast[] {
-  const currentHour = new Date().getHours();
-  return getDayOptions(todayKey).map((day, index) => {
-    const offset = index - 1;
-    const amountScale = offset === 0 ? 1 : offset === -1 ? 0.45 : offset === 1 ? 0.35 : 0;
-    const points = MOCK_POINTS.map((point, hour) => ({
-      ...point,
-      precip: Math.round(point.precip * amountScale * 100) / 100,
-      isPast: offset < 0 || (offset === 0 && hour <= currentHour),
-    }));
-    return createDayForecast(day.key, points);
-  });
-}
-
 function getMetricStats(day: DayForecast | null, selection: PrecipSelection) {
   let soFar = 0;
   let stillToCome = 0;
@@ -177,15 +134,10 @@ function getMetricStats(day: DayForecast | null, selection: PrecipSelection) {
 }
 
 async function fetchSnowData(todayKey: string): Promise<SnowData> {
-  if (MOCK_MODE) {
-    await new Promise((r) => setTimeout(r, 500));
-    return { days: buildMockDays(todayKey), lastUpdated: new Date() };
-  }
-
   const url = new URL("https://api.open-meteo.com/v1/forecast");
   url.searchParams.set("latitude", String(CAMP_LAT));
   url.searchParams.set("longitude", String(CAMP_LON));
-  url.searchParams.set("hourly", "snowfall,temperature_2m,precipitation,weathercode");
+  url.searchParams.set("hourly", "snowfall,temperature_2m,precipitation,weather_code");
   url.searchParams.set("temperature_unit", "fahrenheit");
   url.searchParams.set("timezone", "America/New_York");
   url.searchParams.set("forecast_days", "7");
@@ -199,7 +151,7 @@ async function fetchSnowData(todayKey: string): Promise<SnowData> {
   const snowCm: number[] = json.hourly?.snowfall ?? [];
   const precipMm: number[] = json.hourly?.precipitation ?? [];
   const temps: number[]  = json.hourly?.temperature_2m ?? [];
-  const codes: number[]  = json.hourly?.weathercode ?? [];
+  const codes: number[]  = json.hourly?.weather_code ?? [];
 
   const now = new Date();
   const dayKeys = new Set(getDayOptions(todayKey).map((day) => day.key));
@@ -437,12 +389,6 @@ export default function App() {
 
       {/* Header */}
       <div className="w-full mb-7 text-center">
-        {MOCK_MODE && (
-          <div className="inline-block mb-3 px-3 py-1 rounded-full text-[10px] font-semibold tracking-widest uppercase"
-            style={{ background: "rgba(10,22,44,0.70)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.30)", backdropFilter: "blur(6px)" }}>
-            Preview · Mock Storm Data
-          </div>
-        )}
         <div className="inline-flex flex-col items-center gap-1 rounded-2xl px-6 py-4"
           style={{ background: "rgba(8,18,38,0.72)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.10)" }}>
           <div className="flex items-center gap-2.5 mb-0.5">
