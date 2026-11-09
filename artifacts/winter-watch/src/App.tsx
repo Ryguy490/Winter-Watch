@@ -392,7 +392,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
       ))}
 
       {/* Right Y axis — precipitation */}
-      {[0, 0.3, 0.6].map((p) => (
+      {mode === "precipitation" && [0, 0.3, 0.6].map((p) => (
         <text key={`pr-${p}`} x={LP + CW + 4} y={precipY(p) + 2.5}
           textAnchor="start" fontSize="7" fill="#60a5fa" opacity="0.7">{p}"</text>
       ))}
@@ -606,7 +606,18 @@ export default function App() {
               <div className="mt-1">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">Hour-by-hour</p>
-                  <div className="flex items-center gap-3">
+                  <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.04] p-0.5" role="group" aria-label="Graph display">
+                    {(["precipitation", "intensity"] as const).map((mode) => (
+                      <button key={mode} type="button" aria-pressed={chartMode === mode}
+                        onClick={() => setChartMode(mode)}
+                        className={`rounded-md px-2.5 py-1 text-[10px] font-semibold capitalize transition-colors ${
+                          chartMode === mode ? "bg-blue-400/25 text-white" : "text-muted-foreground hover:text-white"
+                        }`}>
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="hidden sm:flex items-center gap-3">
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <span className="inline-block w-5 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #3b82f6, #22d3ee, #2dd4bf, #facc15, #fb923c, #ef4444)", boxShadow: "0 0 0 1px rgba(7,20,38,0.9)" }} />
                       Temp
