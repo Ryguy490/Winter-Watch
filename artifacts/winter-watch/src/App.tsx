@@ -366,6 +366,13 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
           width={barWidth} height={barHeight} rx="1.2"
           fill={PRECIP_COLORS[point.type]} opacity="0.95" />;
       })}
+      {mode === "intensity" && hasGraphData && points.every((point) => point.precip <= 0) && (
+        <text x={LP + CW / 2} y={TP + CH / 2}
+          textAnchor="middle" dominantBaseline="middle"
+          fontSize="10" fontWeight="600" fill="#cbd5e1">
+          No precipitation expected
+        </text>
+      )}
       {mode === "intensity" && ["Extreme", "Heavy", "Medium", "Light"].map((label, index) => {
         const y = TP + (index * CH / 4) + 2.5;
         return <text key={label} x={LP - 5} y={y} textAnchor="end"
