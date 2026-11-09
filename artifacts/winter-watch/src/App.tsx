@@ -210,11 +210,12 @@ const VW = 320, VH = 158;
 const LP = 34, RP = 34, TP = 10, BP = 28;
 const CW = VW - LP - RP;
 const CH = VH - TP - BP;
-const MIN_TEMP = 22, MAX_TEMP = 44;
 const MAX_PRECIP = 0.7;
 
 function ptX(i: number, n: number) { return LP + (i / (n - 1)) * CW; }
-function tempY(t: number)           { return TP + (1 - (t - MIN_TEMP) / (MAX_TEMP - MIN_TEMP)) * CH; }
+function tempY(t: number, min: number, max: number) {
+  return TP + (1 - (t - min) / (max - min)) * CH;
+}
 function precipY(p: number)         { return TP + (1 - p / MAX_PRECIP) * CH; }
 
 // Catmull-Rom control points for smooth bezier segments
@@ -245,7 +246,21 @@ function f(n: number) { return n.toFixed(2); }
 function WeatherChart({ points }: { points: HourPoint[] }) {
   const n = points.length;
   const hasGraphData = n >= 2;
-  const tempPts  = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp) })) : [];
+
+  // Fit the temperature axis to this selected day's forecast high and low.
+  // A little padding keeps the line away from the chart edges, even on mild days.
+  const dayLow = points.length ? Math.min(...points.map((point) => point.temp)) : 0;
+  const dayHigh = points.length ? Math.max(...points.map((point) => point.temp)) : 1;
+  const rawRange = Math.max(dayHigh - dayLow, 2);
+  const padding = Math.max(2, rawRange * 0.15);
+  const tempMin = Math.floor((dayLow - padding) / 2) * 2;
+  const tempMax = Math.ceil((dayHigh + padding) / 2) * 2;
+  const tempTicks = Array.from({ length: 5 }, (_, index) =>
+    tempMin + ((tempMax - tempMin) * index) / 4
+  );
+  const tempPts = hasGraphData
+    ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp, tempMin, tempMax) }))
+    : [];
   // Lift zero values slightly above the baseline so a dry-weather line remains visible.
   const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip === 0 ? 0.015 : p.precip) })) : [];
   const noPrecipitationColor = "#a1a1aa";
@@ -275,8 +290,8 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
       )}
 
       {/* Horizontal grid lines */}
-      {[24, 30, 36, 42].map((t) => (
-        <line key={t} x1={LP} y1={tempY(t)} x2={LP + CW} y2={tempY(t)}
+      {tempTicks.map((t) => (
+        <line key={t} x1={LP} y1={tempY(t, tempMin, tempMax)} x2={LP + CW} y2={tempY(t, tempMin, tempMax)}
           stroke="#1e3a5f" strokeWidth="0.75" strokeDasharray="4,4" />
       ))}
 
@@ -308,9 +323,9 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
         fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.88" />}
 
       {/* Left Y axis — temperature */}
-      {[24, 30, 36, 42].map((t) => (
-        <text key={`tl-${t}`} x={LP - 4} y={tempY(t) + 2.5}
-          textAnchor="end" fontSize="7" fill="#fbbf24" opacity="0.7">{t}°</text>
+      {tempTicks.map((t) => (
+        <text key={`tl-${t}`} x={LP - 4} y={tempY(t, tempMin, tempMax) + 2.5}
+          textAnchor="end" fontSize="7" fill="#fbbf24" opacity="0.7">{Math.round(t)}°</text>
       ))}
 
       {/* Right Y axis — precipitation */}
