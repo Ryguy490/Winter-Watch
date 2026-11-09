@@ -472,6 +472,8 @@ export default function App() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState("Using default location");
+  const [isCurrentLocation, setIsCurrentLocation] = useState(false);
+  const locationSelectionRef = useRef(0);
   const requestIdRef = useRef(0);
 
   const dayOptions = getDayOptions(todayKey);
@@ -515,15 +517,31 @@ export default function App() {
       setLocationStatus("Location access is unavailable in this browser");
       return;
     }
+    const locationRequestId = ++locationSelectionRef.current;
     navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLocation({
-          name: "Your location",
-          region: "Current device location",
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
-        setLocationStatus("Using your device location");
+      async (position) => {
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        setIsCurrentLocation(true);
+        setLocation({ name: "your area", region: "", latitude, longitude });
+        setLocationStatus("Using your current location");
+
+        // Resolve the coordinates to a recognizable town/city name for the header.
+        try {
+          const reverseUrl = new URL("https://api.bigdatacloud.net/data/reverse-geocode-client");
+          reverseUrl.searchParams.set("latitude", String(latitude));
+          reverseUrl.searchParams.set("longitude", String(longitude));
+          reverseUrl.searchParams.set("localityLanguage", "en");
+          const response = await fetch(reverseUrl.toString());
+          if (!response.ok) return;
+          const result = await response.json();
+          const townName = result.city || result.locality || result.localityInfo?.administrative?.[0]?.name;
+          if (townName && locationSelectionRef.current === locationRequestId) {
+            setLocation((current) => ({ ...current, name: townName }));
+          }
+        } catch {
+          // Keep the generic current-location label if reverse geocoding is unavailable.
+        }
       },
       () => setLocationStatus("Location permission not granted · choose a place below"),
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
@@ -564,6 +582,8 @@ export default function App() {
   };
 
   const chooseLocation = (nextLocation: LocationChoice) => {
+    locationSelectionRef.current += 1;
+    setIsCurrentLocation(false);
     setLocation(nextLocation);
     setSearchResults([]);
     setSearchText("");
@@ -614,7 +634,9 @@ export default function App() {
             />
             <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
           </div>
-          <p className="text-sm" style={{ color: "#93c5fd" }}>{location.name} · {location.region}</p>
+          <p className="text-sm" style={{ color: "#93c5fd" }}>
+            {isCurrentLocation ? `Current location * (${location.name})` : `${location.name} · ${location.region}`}
+          </p>
           <p className="mt-1 text-[10px] text-slate-400">{locationStatus}</p>
         </div>
       </div>
