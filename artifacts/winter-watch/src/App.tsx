@@ -376,7 +376,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
           The halo keeps this line distinct where it crosses precipitation. */}
       {mode === "precipitation" && hasGraphData && <path d={smoothPath(tempPts)}
         fill="none" stroke="#071426" strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" opacity="0.95" />}
-      {hasGraphData && points.map((point, i) => {
+      {mode === "precipitation" && hasGraphData && points.map((point, i) => {
         if (i === n - 1) return null;
         const { cp1, cp2 } = catmullControlPoints(tempPts, i);
         const segmentPath = `M ${f(tempPts[i].x)} ${f(tempPts[i].y)} C ${f(cp1.x)} ${f(cp1.y)}, ${f(cp2.x)} ${f(cp2.y)}, ${f(tempPts[i + 1].x)} ${f(tempPts[i + 1].y)}`;
@@ -618,10 +618,12 @@ export default function App() {
                     ))}
                   </div>
                   <div className="hidden sm:flex items-center gap-3">
-                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="inline-block w-5 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #3b82f6, #22d3ee, #2dd4bf, #facc15, #fb923c, #ef4444)", boxShadow: "0 0 0 1px rgba(7,20,38,0.9)" }} />
-                      Temp
-                    </span>
+                    {chartMode === "precipitation" && (
+                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="inline-block w-5 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #3b82f6, #22d3ee, #2dd4bf, #facc15, #fb923c, #ef4444)", boxShadow: "0 0 0 1px rgba(7,20,38,0.9)" }} />
+                        Temp
+                      </span>
+                    )}
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <span className="inline-block w-4 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #4ade80 0 25%, #c084fc 25% 50%, #60a5fa 50% 75%, #f472b6 75%)" }} />
                       Precip
