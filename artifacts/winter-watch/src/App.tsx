@@ -590,9 +590,6 @@ export default function App() {
                       <span className="text-[10px] text-muted-foreground">{label}</span>
                     </div>
                   ))}
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground">Past hours</span>
-                  </div>
                 </div>
               </div>
             )}
