@@ -374,7 +374,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
 
       {/* Temperature — dark halo plus per-segment cool-to-warm colors.
           The halo keeps this line distinct where it crosses precipitation. */}
-      {hasGraphData && <path d={smoothPath(tempPts)}
+      {mode === "precipitation" && hasGraphData && <path d={smoothPath(tempPts)}
         fill="none" stroke="#071426" strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" opacity="0.95" />}
       {hasGraphData && points.map((point, i) => {
         if (i === n - 1) return null;
