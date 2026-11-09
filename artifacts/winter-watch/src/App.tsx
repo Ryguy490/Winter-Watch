@@ -471,7 +471,7 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<LocationChoice[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [locationStatus, setLocationStatus] = useState("Using default location");
+  const [locationStatus, setLocationStatus] = useState("Location has not been requested");
   const requestIdRef = useRef(0);
 
   const dayOptions = getDayOptions(todayKey);
@@ -510,11 +510,20 @@ export default function App() {
     }
   }, [favorites]);
 
-  useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationStatus("Location access is unavailable in this browser");
+  const [locating, setLocating] = useState(false);
+
+  const requestDeviceLocation = () => {
+    if (!window.isSecureContext) {
+      setLocationStatus("Location requires a secure HTTPS connection");
       return;
     }
+    if (!navigator.geolocation) {
+      setLocationStatus("This browser does not support location access");
+      return;
+    }
+
+    setLocating(true);
+    setLocationStatus("Requesting your device location…");
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setLocation({
@@ -524,11 +533,23 @@ export default function App() {
           longitude: position.coords.longitude,
         });
         setLocationStatus("Using your device location");
+        setLocating(false);
       },
-      () => setLocationStatus("Location permission not granted · choose a place below"),
-      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) {
+          setLocationStatus("Location is blocked. Allow it in your browser's site settings, then try again.");
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          setLocationStatus("Your device could not determine its location. Try again or search for a place.");
+        } else if (error.code === error.TIMEOUT) {
+          setLocationStatus("Location request timed out. Please try again.");
+        } else {
+          setLocationStatus("Could not get your location. Search for a place instead.");
+        }
+        setLocating(false);
+      },
+      { enableHighAccuracy: false, timeout: 15000, maximumAge: 300000 },
     );
-  }, []);
+  };
 
   const searchLocations = async () => {
     const query = searchText.trim();
@@ -618,6 +639,11 @@ export default function App() {
           <p className="mt-1 text-[10px] text-slate-400">{locationStatus}</p>
         </div>
       </div>
+
+      <button type="button" onClick={requestDeviceLocation} disabled={locating}
+        className="w-full mb-3 rounded-xl border border-blue-300/30 bg-blue-400/15 px-4 py-3 text-sm font-semibold text-blue-100 hover:bg-blue-400/25 disabled:opacity-60">
+        {locating ? "Finding your location…" : "◎ Use my location"}
+      </button>
 
       {/* Location search and favorites */}
       <div className="w-full rounded-2xl border border-white/10 p-4 mb-5"
