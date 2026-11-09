@@ -523,24 +523,43 @@ export default function App() {
         const latitude = position.coords.latitude;
         const longitude = position.coords.longitude;
         setIsCurrentLocation(true);
-        setLocation({ name: "your area", region: "", latitude, longitude });
+        setLocation({ name: "Finding nearby town…", region: "", latitude, longitude });
         setLocationStatus("Using your current location");
 
-        // Resolve the coordinates to a recognizable town/city name for the header.
+        // Reverse-geocode the GPS coordinates to the nearest named populated place.
+        // Nominatim's city-level zoom returns a town/city rather than a street address.
         try {
-          const reverseUrl = new URL("https://api.bigdatacloud.net/data/reverse-geocode-client");
-          reverseUrl.searchParams.set("latitude", String(latitude));
-          reverseUrl.searchParams.set("longitude", String(longitude));
-          reverseUrl.searchParams.set("localityLanguage", "en");
-          const response = await fetch(reverseUrl.toString());
-          if (!response.ok) return;
+          const reverseUrl = new URL("https://nominatim.openstreetmap.org/reverse");
+          reverseUrl.searchParams.set("format", "jsonv2");
+          reverseUrl.searchParams.set("lat", String(latitude));
+          reverseUrl.searchParams.set("lon", String(longitude));
+          reverseUrl.searchParams.set("zoom", "10");
+          reverseUrl.searchParams.set("addressdetails", "1");
+          const response = await fetch(reverseUrl.toString(), {
+            headers: { Accept: "application/json" },
+          });
+          if (!response.ok) throw new Error("Reverse geocoding failed");
           const result = await response.json();
-          const townName = result.locality || result.city || result.localityInfo?.administrative?.[0]?.name;
+          const address = result.address ?? {};
+          const townName =
+            address.town ||
+            address.village ||
+            address.city ||
+            address.municipality ||
+            address.hamlet ||
+            address.suburb ||
+            address.city_district ||
+            result.name;
           if (townName && locationSelectionRef.current === locationRequestId) {
             setLocation((current) => ({ ...current, name: townName }));
+          } else if (locationSelectionRef.current === locationRequestId) {
+            setLocation((current) => ({ ...current, name: "your area" }));
           }
         } catch {
-          // Keep the generic current-location label if reverse geocoding is unavailable.
+          // Keep a useful generic label if reverse geocoding is unavailable.
+          if (locationSelectionRef.current === locationRequestId) {
+            setLocation((current) => ({ ...current, name: "your area" }));
+          }
         }
       },
       () => setLocationStatus("Location permission not granted · choose a place below"),
@@ -635,7 +654,7 @@ export default function App() {
             <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
           </div>
           <p className="text-sm" style={{ color: "#93c5fd" }}>
-            {isCurrentLocation ? `Current location * (${location.name})` : `${location.name} · ${location.region}`}
+            {isCurrentLocation ? `Your Location * ${location.name}` : `${location.name} · ${location.region}`}
           </p>
           <p className="mt-1 text-[10px] text-slate-400">{locationStatus}</p>
         </div>
