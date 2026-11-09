@@ -472,7 +472,7 @@ export default function App() {
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [locationStatus, setLocationStatus] = useState("Using default location");
-  const requestInProgressRef = useRef(false);
+  const requestIdRef = useRef(0);
 
   const dayOptions = getDayOptions(todayKey);
   const selectedDay = data?.days.find((day) => day.key === selectedDayKey) ?? null;
@@ -486,17 +486,19 @@ export default function App() {
     : PRECIP_SELECTIONS.find((option) => option.value === precipSelection)?.label ?? "Snow";
 
   const load = useCallback(async (showLoading = true) => {
-    if (requestInProgressRef.current) return;
-    requestInProgressRef.current = true;
+    const requestId = ++requestIdRef.current;
     if (showLoading) setLoading(true);
     try {
-      setData(await fetchSnowData(todayKey, location.latitude, location.longitude));
+      const nextData = await fetchSnowData(todayKey, location.latitude, location.longitude);
+      if (requestId !== requestIdRef.current) return;
+      setData(nextData);
       setError(null);
     } catch {
-      setError("Data unavailable – showing the last successful update");
+      if (requestId === requestIdRef.current) {
+        setError("Data unavailable – showing the last successful update");
+      }
     } finally {
-      requestInProgressRef.current = false;
-      if (showLoading) setLoading(false);
+      if (requestId === requestIdRef.current && showLoading) setLoading(false);
     }
   }, [todayKey, location]);
 
