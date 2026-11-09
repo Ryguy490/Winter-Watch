@@ -535,7 +535,8 @@ export default function App() {
           const response = await fetch(reverseUrl.toString());
           if (!response.ok) return;
           const result = await response.json();
-          const townName = result.city || result.locality || result.localityInfo?.administrative?.[0]?.name;
+          // Prefer the nearest locality/town returned for these coordinates, then fall back to city or region.
+          const townName = result.locality || result.city || result.localityInfo?.administrative?.[0]?.name;
           if (townName && locationSelectionRef.current === locationRequestId) {
             setLocation((current) => ({ ...current, name: townName }));
           }
