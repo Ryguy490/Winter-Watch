@@ -241,6 +241,24 @@ function catmullControlPoints(pts: {x:number; y:number}[], i: number) {
   };
 }
 
+// Light five-point weighted smoothing reduces hour-to-hour zigzags while
+// keeping the displayed curve close to the forecast values.
+function smoothPoints(pts: {x:number; y:number}[]): {x:number; y:number}[] {
+  const weights = [1, 2, 3, 2, 1];
+  return pts.map((point, index) => {
+    let weightedY = 0;
+    let totalWeight = 0;
+    for (let offset = -2; offset <= 2; offset++) {
+      const neighbor = pts[index + offset];
+      if (!neighbor) continue;
+      const weight = weights[offset + 2];
+      weightedY += neighbor.y * weight;
+      totalWeight += weight;
+    }
+    return { x: point.x, y: weightedY / totalWeight };
+  });
+}
+
 function smoothPath(pts: {x:number; y:number}[]): string {
   if (pts.length < 2) return "";
   let d = `M ${f(pts[0].x)} ${f(pts[0].y)}`;
@@ -270,10 +288,13 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
     tempMin + ((tempMax - tempMin) * index) / 4
   );
   const tempPts = hasGraphData
-    ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp, tempMin, tempMax) }))
+    ? smoothPoints(points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp, tempMin, tempMax) })))
     : [];
-  // Lift zero values slightly above the baseline so a dry-weather line remains visible.
-  const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip === 0 ? 0.015 : p.precip) })) : [];
+  // Lift zero values slightly above the baseline so a dry-weather line remains visible,
+  // then gently smooth small hourly jumps without changing the underlying totals.
+  const precipPts = hasGraphData
+    ? smoothPoints(points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip === 0 ? 0.015 : p.precip) })))
+    : [];
   const noPrecipitationColor = "#a1a1aa";
 
   const lastPastIdx = points.reduce((acc, p, i) => (p.isPast ? i : acc), -1);
