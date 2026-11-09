@@ -386,7 +386,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
       })}
 
       {/* Left Y axis — temperature */}
-      {tempTicks.map((t) => (
+      {mode === "precipitation" && tempTicks.map((t) => (
         <text key={`tl-${t}`} x={LP - 4} y={tempY(t, tempMin, tempMax) + 2.5}
           textAnchor="end" fontSize="7" fill="#bae6fd" opacity="0.9">{Math.round(t)}°</text>
       ))}
