@@ -278,6 +278,7 @@ function f(n: number) { return n.toFixed(2); }
 function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }) {
   const n = points.length;
   const hasGraphData = n >= 2;
+  const hasPrecipitation = points.some((point) => point.precip > 0);
 
   // Fit the temperature axis to this selected day's forecast high and low.
   // A little padding keeps the line away from the chart edges, even on mild days.
@@ -356,7 +357,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
           stroke={segmentType === "none" ? noPrecipitationColor : PRECIP_COLORS[segmentType]}
           strokeWidth="2.4" strokeLinecap="round" />;
       })}
-      {mode === "intensity" && hasGraphData && points.map((point, i) => {
+      {mode === "intensity" && hasGraphData && hasPrecipitation && points.map((point, i) => {
         const intensity = intensityFor(point.precip);
         if (!intensity) return null;
         const barHeight = CH * (intensity.level / 4);
@@ -366,11 +367,17 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
           width={barWidth} height={barHeight} rx="1.2"
           fill={PRECIP_COLORS[point.type]} opacity="0.95" />;
       })}
-      {mode === "intensity" && ["Extreme", "Heavy", "Medium", "Light"].map((label, index) => {
+      {mode === "intensity" && hasGraphData && hasPrecipitation && ["Extreme", "Heavy", "Medium", "Light"].map((label, index) => {
         const y = TP + (index * CH / 4) + 2.5;
         return <text key={label} x={LP - 5} y={y} textAnchor="end"
           fontSize="6.5" fill="#cbd5e1" opacity="0.9">{label}</text>;
       })}
+      {mode === "intensity" && hasGraphData && !hasPrecipitation && (
+        <text x={LP + CW / 2} y={TP + CH / 2} textAnchor="middle" dominantBaseline="middle"
+          fontSize="11" fontWeight="600" fill="#cbd5e1">
+          No precipitation expected
+        </text>
+      )}
 
       {/* Temperature — dark halo plus per-segment cool-to-warm colors.
           The halo keeps this line distinct where it crosses precipitation. */}
