@@ -160,7 +160,9 @@ async function fetchSnowData(todayKey: string): Promise<SnowData> {
   for (let i = 0; i < times.length; i++) {
     const key = times[i].slice(0, 10);
     if (!dayKeys.has(key)) continue;
-    const time = new Date(times[i]);
+    // Open-Meteo returns wall-clock timestamps in the requested timezone without an offset.
+    // Parse them as local time instead of letting Date treat them as UTC.
+    const time = parseApiLocalTime(times[i]);
     const temp   = temps[i] ?? 32;
     const type = wmoToPrecipType(codes[i] ?? 0, temp);
     const inches = type === "snow"
@@ -193,6 +195,13 @@ function wmoToPrecipType(code: number, temp: number): PrecipType {
 function cmToInches(cm: number)  { return cm * 0.393701; }
 function mmToInches(mm: number)  { return mm * 0.0393701; }
 function round1(n: number)       { return Math.round(n * 10) / 10; }
+function parseApiLocalTime(value: string): Date {
+  const [datePart, timePart = "00:00"] = value.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  return new Date(year, month - 1, day, hour, minute);
+}
+
 function formatHour(d: Date)     { return d.toLocaleTimeString([], { hour: "numeric", hour12: true }); }
 function formatTime(d: Date)     { return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }); }
 
@@ -237,8 +246,8 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
   const n = points.length;
   const hasGraphData = n >= 2;
   const tempPts  = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp) })) : [];
-  const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip) })) : [];
-  const hasPrecipitation = points.some((point) => point.precip > 0);
+  // Lift zero values slightly above the baseline so a dry-weather line remains visible.
+  const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip === 0 ? 0.015 : p.precip) })) : [];
   const noPrecipitationColor = "#a1a1aa";
 
   const lastPastIdx = points.reduce((acc, p, i) => (p.isPast ? i : acc), -1);
@@ -283,11 +292,14 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
       {/* Precipitation — line color shows precipitation type */}
       {hasGraphData && points.map((p, i) => {
         if (i === n - 1) return null;
-        const { cp1, cp2 } = catmullControlPoints(precipPts, i);
-        const segPath = `M ${f(precipPts[i].x)} ${f(precipPts[i].y)} C ${f(cp1.x)} ${f(cp1.y)}, ${f(cp2.x)} ${f(cp2.y)}, ${f(precipPts[i+1].x)} ${f(precipPts[i+1].y)}`;
+        // Keep hourly precipitation values literal: curved interpolation can invent peaks
+        // between hours and can dip below zero. Dry intervals use a visible neutral line.
+        const next = points[i + 1];
+        const segmentType: PrecipType = p.precip > 0 ? p.type : next.precip > 0 ? next.type : "none";
+        const segPath = `M ${f(precipPts[i].x)} ${f(precipPts[i].y)} L ${f(precipPts[i+1].x)} ${f(precipPts[i+1].y)}`;
         return (
           <path key={`pr-${i}`} d={segPath}
-            fill="none" stroke={hasPrecipitation ? PRECIP_COLORS[p.type] : noPrecipitationColor} strokeWidth="2.4" strokeLinecap="round" />
+            fill="none" stroke={segmentType === "none" ? noPrecipitationColor : PRECIP_COLORS[segmentType]} strokeWidth="2.4" strokeLinecap="round" />
         );
       })}
 
