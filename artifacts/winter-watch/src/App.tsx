@@ -248,7 +248,6 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
   const tempPts  = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp) })) : [];
   // Lift zero values slightly above the baseline so a dry-weather line remains visible.
   const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip === 0 ? 0.015 : p.precip) })) : [];
-  const hasPrecipitation = points.some((point) => point.precip > 0);
   const noPrecipitationColor = "#a1a1aa";
 
   const lastPastIdx = points.reduce((acc, p, i) => (p.isPast ? i : acc), -1);
