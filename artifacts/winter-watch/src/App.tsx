@@ -251,6 +251,26 @@ function smoothPath(pts: {x:number; y:number}[]): string {
   return d;
 }
 
+// Map Fahrenheit temperatures to a cool-to-warm color scale.
+function temperatureColor(temp: number): string {
+  const stops = [
+    { temp: 10, color: [59, 130, 246] },
+    { temp: 25, color: [34, 211, 238] },
+    { temp: 40, color: [45, 212, 191] },
+    { temp: 55, color: [250, 204, 21] },
+    { temp: 70, color: [251, 146, 60] },
+    { temp: 85, color: [239, 68, 68] },
+  ];
+  const bounded = Math.max(stops[0].temp, Math.min(stops[stops.length - 1].temp, temp));
+  const upperIndex = stops.findIndex((stop) => stop.temp >= bounded);
+  if (upperIndex <= 0) return `rgb(${stops[0].color.join(",")})`;
+  const lower = stops[upperIndex - 1];
+  const upper = stops[upperIndex];
+  const ratio = (bounded - lower.temp) / (upper.temp - lower.temp);
+  const rgb = lower.color.map((channel, index) => Math.round(channel + (upper.color[index] - channel) * ratio));
+  return `rgb(${rgb.join(",")})`;
+}
+
 function f(n: number) { return n.toFixed(2); }
 
 // ── Weather Chart ─────────────────────────────────────────────────────────────
@@ -330,14 +350,23 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
         );
       })}
 
-      {/* Temperature — single smooth amber line */}
+      {/* Temperature — dark halo plus per-segment cool-to-warm colors.
+          The halo keeps this line distinct where it crosses precipitation. */}
       {hasGraphData && <path d={smoothPath(tempPts)}
-        fill="none" stroke="#fbbf24" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" opacity="0.88" />}
+        fill="none" stroke="#071426" strokeWidth="5" strokeLinejoin="round" strokeLinecap="round" opacity="0.95" />}
+      {hasGraphData && points.map((point, i) => {
+        if (i === n - 1) return null;
+        const { cp1, cp2 } = catmullControlPoints(tempPts, i);
+        const segmentPath = `M ${f(tempPts[i].x)} ${f(tempPts[i].y)} C ${f(cp1.x)} ${f(cp1.y)}, ${f(cp2.x)} ${f(cp2.y)}, ${f(tempPts[i + 1].x)} ${f(tempPts[i + 1].y)}`;
+        return <path key={`temp-${i}`} d={segmentPath} fill="none"
+          stroke={temperatureColor((point.temp + points[i + 1].temp) / 2)}
+          strokeWidth="2.8" strokeLinejoin="round" strokeLinecap="round" />;
+      })}
 
       {/* Left Y axis — temperature */}
       {tempTicks.map((t) => (
         <text key={`tl-${t}`} x={LP - 4} y={tempY(t, tempMin, tempMax) + 2.5}
-          textAnchor="end" fontSize="7" fill="#fbbf24" opacity="0.7">{Math.round(t)}°</text>
+          textAnchor="end" fontSize="7" fill="#bae6fd" opacity="0.9">{Math.round(t)}°</text>
       ))}
 
       {/* Right Y axis — precipitation */}
@@ -556,11 +585,11 @@ export default function App() {
                   <p className="text-xs text-muted-foreground">Hour-by-hour</p>
                   <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="inline-block w-4 h-[2px] rounded" style={{ background: "#fbbf24", opacity: 0.85 }} />
+                      <span className="inline-block w-5 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #3b82f6, #22d3ee, #2dd4bf, #facc15, #fb923c, #ef4444)", boxShadow: "0 0 0 1px rgba(7,20,38,0.9)" }} />
                       Temp
                     </span>
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="inline-block w-4 h-[2px] rounded" style={{ background: "#60a5fa" }} />
+                      <span className="inline-block w-4 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #4ade80 0 25%, #c084fc 25% 50%, #60a5fa 50% 75%, #f472b6 75%)" }} />
                       Precip
                     </span>
                   </div>
