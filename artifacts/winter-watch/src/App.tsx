@@ -15,6 +15,7 @@ interface HourPoint {
 }
 
 type PrecipSelection = "rain" | "mixed" | "snow" | "ice" | "total";
+type ChartMode = "precipitation" | "intensity";
 type PrecipTotals = Record<PrecipSelection, number>;
 
 interface DayOption {
@@ -207,7 +208,7 @@ function formatTime(d: Date)     { return d.toLocaleTimeString([], { hour: "nume
 
 // ── Chart layout ─────────────────────────────────────────────────────────────
 const VW = 320, VH = 158;
-const LP = 34, RP = 34, TP = 10, BP = 28;
+const LP = 56, RP = 34, TP = 10, BP = 28;
 const CW = VW - LP - RP;
 const CH = VH - TP - BP;
 const MAX_PRECIP = 0.7;
@@ -274,7 +275,7 @@ function temperatureColor(temp: number): string {
 function f(n: number) { return n.toFixed(2); }
 
 // ── Weather Chart ─────────────────────────────────────────────────────────────
-function WeatherChart({ points }: { points: HourPoint[] }) {
+function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }) {
   const n = points.length;
   const hasGraphData = n >= 2;
 
@@ -295,6 +296,15 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
   // Lift zero values slightly above the baseline so a dry-weather line remains visible.
   const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip === 0 ? 0.015 : p.precip) })) : [];
   const noPrecipitationColor = "#a1a1aa";
+  // Hourly precipitation amount (inches) determines the intensity tier.
+  // The tiers are fixed so different selected days remain comparable.
+  const intensityFor = (amount: number): { level: number; label: string } | null => {
+    if (amount <= 0) return null;
+    if (amount > 0.3) return { level: 4, label: "Extreme" };
+    if (amount > 0.15) return { level: 3, label: "Heavy" };
+    if (amount > 0.05) return { level: 2, label: "Medium" };
+    return { level: 1, label: "Light" };
+  };
 
   const lastPastIdx = points.reduce((acc, p, i) => (p.isPast ? i : acc), -1);
   const nowX = lastPastIdx >= 0 && lastPastIdx < n - 1
@@ -335,19 +345,31 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
         </>
       )}
 
-      {/* Precipitation — line color shows precipitation type */}
-      {hasGraphData && points.map((p, i) => {
+      {/* Precipitation line or hourly intensity bars */}
+      {mode === "precipitation" && hasGraphData && points.map((p, i) => {
         if (i === n - 1) return null;
-        // Smooth each hourly segment while keeping its curve within the two
-        // measured endpoints. Dry intervals retain the neutral grey color.
         const next = points[i + 1];
         const segmentType: PrecipType = p.precip > 0 ? p.type : next.precip > 0 ? next.type : "none";
         const { cp1, cp2 } = catmullControlPoints(precipPts, i);
         const segPath = `M ${f(precipPts[i].x)} ${f(precipPts[i].y)} C ${f(cp1.x)} ${f(cp1.y)}, ${f(cp2.x)} ${f(cp2.y)}, ${f(precipPts[i+1].x)} ${f(precipPts[i+1].y)}`;
-        return (
-          <path key={`pr-${i}`} d={segPath}
-            fill="none" stroke={segmentType === "none" ? noPrecipitationColor : PRECIP_COLORS[segmentType]} strokeWidth="2.4" strokeLinecap="round" />
-        );
+        return <path key={`pr-${i}`} d={segPath} fill="none"
+          stroke={segmentType === "none" ? noPrecipitationColor : PRECIP_COLORS[segmentType]}
+          strokeWidth="2.4" strokeLinecap="round" />;
+      })}
+      {mode === "intensity" && hasGraphData && points.map((point, i) => {
+        const intensity = intensityFor(point.precip);
+        if (!intensity) return null;
+        const barHeight = CH * (intensity.level / 4);
+        const barWidth = Math.max(3, Math.min(8, CW / n * 0.58));
+        return <rect key={`intensity-${i}`}
+          x={ptX(i, n) - barWidth / 2} y={TP + CH - barHeight}
+          width={barWidth} height={barHeight} rx="1.2"
+          fill={PRECIP_COLORS[point.type]} opacity="0.95" />;
+      })}
+      {mode === "intensity" && ["Extreme", "Heavy", "Medium", "Light"].map((label, index) => {
+        const y = TP + (index * CH / 4) + 2.5;
+        return <text key={label} x={LP - 5} y={y} textAnchor="end"
+          fontSize="6.5" fill="#cbd5e1" opacity="0.9">{label}</text>;
       })}
 
       {/* Temperature — dark halo plus per-segment cool-to-warm colors.
@@ -364,13 +386,13 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
       })}
 
       {/* Left Y axis — temperature */}
-      {tempTicks.map((t) => (
+      {mode === "precipitation" && tempTicks.map((t) => (
         <text key={`tl-${t}`} x={LP - 4} y={tempY(t, tempMin, tempMax) + 2.5}
           textAnchor="end" fontSize="7" fill="#bae6fd" opacity="0.9">{Math.round(t)}°</text>
       ))}
 
       {/* Right Y axis — precipitation */}
-      {[0, 0.3, 0.6].map((p) => (
+      {mode === "precipitation" && [0, 0.3, 0.6].map((p) => (
         <text key={`pr-${p}`} x={LP + CW + 4} y={precipY(p) + 2.5}
           textAnchor="start" fontSize="7" fill="#60a5fa" opacity="0.7">{p}"</text>
       ))}
@@ -408,6 +430,7 @@ export default function App() {
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState(() => getDateKey(new Date()));
   const [precipSelection, setPrecipSelection] = useState<PrecipSelection>("snow");
+  const [chartMode, setChartMode] = useState<ChartMode>("precipitation");
   const requestInProgressRef = useRef(false);
 
   const dayOptions = getDayOptions(todayKey);
@@ -583,7 +606,18 @@ export default function App() {
               <div className="mt-1">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">Hour-by-hour</p>
-                  <div className="flex items-center gap-3">
+                  <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.04] p-0.5" role="group" aria-label="Graph display">
+                    {(["precipitation", "intensity"] as const).map((mode) => (
+                      <button key={mode} type="button" aria-pressed={chartMode === mode}
+                        onClick={() => setChartMode(mode)}
+                        className={`rounded-md px-2.5 py-1 text-[10px] font-semibold capitalize transition-colors ${
+                          chartMode === mode ? "bg-blue-400/25 text-white" : "text-muted-foreground hover:text-white"
+                        }`}>
+                        {mode}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="hidden sm:flex items-center gap-3">
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <span className="inline-block w-5 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #3b82f6, #22d3ee, #2dd4bf, #facc15, #fb923c, #ef4444)", boxShadow: "0 0 0 1px rgba(7,20,38,0.9)" }} />
                       Temp
@@ -595,7 +629,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <WeatherChart points={selectedDay?.points ?? []} />
+                <WeatherChart points={selectedDay?.points ?? []} mode={chartMode} />
 
                 <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
                   {LEGEND_ITEMS.map(({ type, label }) => (
