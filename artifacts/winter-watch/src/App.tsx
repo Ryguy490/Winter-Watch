@@ -1,8 +1,28 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-const CAMP_LAT = 35.9771;
-const CAMP_LON = -78.5097;
-const LOCATION_LABEL = "Camp Kanata · Wake Forest, NC";
+const DEFAULT_LOCATION: LocationChoice = {
+  name: "Camp Kanata",
+  region: "Wake Forest, NC",
+  latitude: 35.9771,
+  longitude: -78.5097,
+};
+const FAVORITES_STORAGE_KEY = "winter-watch-favorite-locations";
+
+interface LocationChoice {
+  name: string;
+  region: string;
+  latitude: number;
+  longitude: number;
+}
+
+interface GeocodingResult {
+  id: number;
+  name: string;
+  admin1?: string;
+  latitude: number;
+  longitude: number;
+  country_code: string;
+}
 
 type PrecipType = "snow" | "ice" | "rain" | "mixed" | "none";
 
@@ -134,13 +154,13 @@ function getMetricStats(day: DayForecast | null, selection: PrecipSelection) {
   };
 }
 
-async function fetchSnowData(todayKey: string): Promise<SnowData> {
+async function fetchSnowData(todayKey: string, latitude: number, longitude: number): Promise<SnowData> {
   const url = new URL("https://api.open-meteo.com/v1/forecast");
-  url.searchParams.set("latitude", String(CAMP_LAT));
-  url.searchParams.set("longitude", String(CAMP_LON));
+  url.searchParams.set("latitude", String(latitude));
+  url.searchParams.set("longitude", String(longitude));
   url.searchParams.set("hourly", "snowfall,temperature_2m,precipitation,weather_code");
   url.searchParams.set("temperature_unit", "fahrenheit");
-  url.searchParams.set("timezone", "America/New_York");
+  url.searchParams.set("timezone", "auto");
   url.searchParams.set("forecast_days", "7");
   url.searchParams.set("past_days", "1");
 
@@ -438,7 +458,21 @@ export default function App() {
   const [selectedDayKey, setSelectedDayKey] = useState(() => getDateKey(new Date()));
   const [precipSelection, setPrecipSelection] = useState<PrecipSelection>("snow");
   const [chartMode, setChartMode] = useState<ChartMode>("precipitation");
-  const requestInProgressRef = useRef(false);
+  const [location, setLocation] = useState<LocationChoice>(DEFAULT_LOCATION);
+  const [favorites, setFavorites] = useState<LocationChoice[]>(() => {
+    try {
+      const saved = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      return saved ? JSON.parse(saved) as LocationChoice[] : [];
+    } catch {
+      return [];
+    }
+  });
+  const [searchText, setSearchText] = useState("");
+  const [searchResults, setSearchResults] = useState<LocationChoice[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [locationStatus, setLocationStatus] = useState("Using default location");
+  const requestIdRef = useRef(0);
 
   const dayOptions = getDayOptions(todayKey);
   const selectedDay = data?.days.find((day) => day.key === selectedDayKey) ?? null;
@@ -452,19 +486,99 @@ export default function App() {
     : PRECIP_SELECTIONS.find((option) => option.value === precipSelection)?.label ?? "Snow";
 
   const load = useCallback(async (showLoading = true) => {
-    if (requestInProgressRef.current) return;
-    requestInProgressRef.current = true;
+    const requestId = ++requestIdRef.current;
     if (showLoading) setLoading(true);
     try {
-      setData(await fetchSnowData(todayKey));
+      const nextData = await fetchSnowData(todayKey, location.latitude, location.longitude);
+      if (requestId !== requestIdRef.current) return;
+      setData(nextData);
       setError(null);
     } catch {
-      setError("Data unavailable – showing the last successful update");
+      if (requestId === requestIdRef.current) {
+        setError("Data unavailable – showing the last successful update");
+      }
     } finally {
-      requestInProgressRef.current = false;
-      if (showLoading) setLoading(false);
+      if (requestId === requestIdRef.current && showLoading) setLoading(false);
     }
-  }, [todayKey]);
+  }, [todayKey, location]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+    } catch {
+      // Favorites remain usable for this session if browser storage is unavailable.
+    }
+  }, [favorites]);
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationStatus("Location access is unavailable in this browser");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocation({
+          name: "Your location",
+          region: "Current device location",
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+        setLocationStatus("Using your device location");
+      },
+      () => setLocationStatus("Location permission not granted · choose a place below"),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
+    );
+  }, []);
+
+  const searchLocations = async () => {
+    const query = searchText.trim();
+    if (!query) return;
+    setSearching(true);
+    setSearchError(null);
+    setSearchResults([]);
+    try {
+      const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+      url.searchParams.set("name", query);
+      url.searchParams.set("count", "10");
+      url.searchParams.set("language", "en");
+      url.searchParams.set("format", "json");
+      url.searchParams.set("countryCode", "US");
+      const response = await fetch(url.toString());
+      if (!response.ok) throw new Error("Location search failed");
+      const json = await response.json();
+      const results: LocationChoice[] = (json.results ?? [])
+        .filter((item: GeocodingResult) => item.country_code === "US")
+        .map((item: GeocodingResult) => ({
+          name: item.name,
+          region: item.admin1 ?? "United States",
+          latitude: item.latitude,
+          longitude: item.longitude,
+        }));
+      setSearchResults(results);
+      if (results.length === 0) setSearchError("No U.S. locations found. Try a city or ZIP code.");
+    } catch {
+      setSearchError("Could not search locations. Please try again.");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const chooseLocation = (nextLocation: LocationChoice) => {
+    setLocation(nextLocation);
+    setSearchResults([]);
+    setSearchText("");
+    setLocationStatus("Forecast location selected");
+    setSelectedDayKey(getDateKey(new Date()));
+  };
+
+  const isFavorite = favorites.some((item) =>
+    item.latitude === location.latitude && item.longitude === location.longitude
+  );
+  const toggleFavorite = () => {
+    setFavorites((current) => isFavorite
+      ? current.filter((item) => item.latitude !== location.latitude || item.longitude !== location.longitude)
+      : [...current, location]);
+  };
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -500,8 +614,67 @@ export default function App() {
             />
             <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
           </div>
-          <p className="text-sm" style={{ color: "#93c5fd" }}>{LOCATION_LABEL}</p>
+          <p className="text-sm" style={{ color: "#93c5fd" }}>{location.name} · {location.region}</p>
+          <p className="mt-1 text-[10px] text-slate-400">{locationStatus}</p>
         </div>
+      </div>
+
+      {/* Location search and favorites */}
+      <div className="w-full rounded-2xl border border-white/10 p-4 mb-5"
+        style={{ background: "rgba(10,22,44,0.88)" }}>
+        <form onSubmit={(event) => { event.preventDefault(); void searchLocations(); }} className="flex gap-2">
+          <input
+            type="search"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Search any U.S. city or ZIP code"
+            aria-label="Search U.S. locations"
+            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white placeholder:text-slate-400 outline-none focus:border-blue-300"
+          />
+          <button type="submit" disabled={searching || !searchText.trim()}
+            className="rounded-lg bg-blue-400/25 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
+            {searching ? "…" : "Search"}
+          </button>
+        </form>
+        {searchError && <p className="mt-2 text-xs text-amber-200">{searchError}</p>}
+        {searchResults.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {searchResults.map((result, index) => (
+              <button key={`${result.name}-${result.region}-${index}`} type="button"
+                onClick={() => chooseLocation(result)}
+                className="w-full rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/10">
+                <span className="font-medium">{result.name}</span>
+                <span className="ml-2 text-xs text-slate-400">{result.region}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Favorites on this device</p>
+          <button type="button" onClick={toggleFavorite}
+            className="text-xs font-semibold text-blue-200 hover:text-white">
+            {isFavorite ? "★ Remove favorite" : "☆ Save current location"}
+          </button>
+        </div>
+        {favorites.length > 0 ? (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {favorites.map((favorite, index) => (
+              <div key={`${favorite.latitude}-${favorite.longitude}-${index}`} className="flex items-center rounded-lg border border-white/10 bg-white/[0.05]">
+                <button type="button" onClick={() => chooseLocation(favorite)}
+                  className="px-2.5 py-1.5 text-xs text-slate-100 hover:text-white">
+                  ★ {favorite.name}, {favorite.region}
+                </button>
+                <button type="button" aria-label={`Remove ${favorite.name} from favorites`}
+                  onClick={() => setFavorites((current) => current.filter((item) =>
+                    item.latitude !== favorite.latitude || item.longitude !== favorite.longitude
+                  ))}
+                  className="px-2 py-1.5 text-xs text-slate-400 hover:text-red-300">×</button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-2 text-xs text-slate-500">Save a location to quickly return to it later.</p>
+        )}
       </div>
 
       {/* Stats card */}
