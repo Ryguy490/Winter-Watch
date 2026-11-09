@@ -224,9 +224,20 @@ function catmullControlPoints(pts: {x:number; y:number}[], i: number) {
   const p1 = pts[i];
   const p2 = pts[i + 1];
   const p3 = pts[Math.min(pts.length - 1, i + 2)];
+  // Keep each curve between its hourly endpoints so smoothing never creates
+  // exaggerated peaks or dips beyond the actual forecast values.
+  const lowY = Math.min(p1.y, p2.y);
+  const highY = Math.max(p1.y, p2.y);
+  const clampY = (value: number) => Math.max(lowY, Math.min(highY, value));
   return {
-    cp1: { x: p1.x + (p2.x - p0.x) / 6, y: p1.y + (p2.y - p0.y) / 6 },
-    cp2: { x: p2.x - (p3.x - p1.x) / 6, y: p2.y - (p3.y - p1.y) / 6 },
+    cp1: {
+      x: p1.x + (p2.x - p0.x) / 6,
+      y: clampY(p1.y + (p2.y - p0.y) / 6),
+    },
+    cp2: {
+      x: p2.x - (p3.x - p1.x) / 6,
+      y: clampY(p2.y - (p3.y - p1.y) / 6),
+    },
   };
 }
 
@@ -307,11 +318,12 @@ function WeatherChart({ points }: { points: HourPoint[] }) {
       {/* Precipitation — line color shows precipitation type */}
       {hasGraphData && points.map((p, i) => {
         if (i === n - 1) return null;
-        // Keep hourly precipitation values literal: curved interpolation can invent peaks
-        // between hours and can dip below zero. Dry intervals use a visible neutral line.
+        // Smooth each hourly segment while keeping its curve within the two
+        // measured endpoints. Dry intervals retain the neutral grey color.
         const next = points[i + 1];
         const segmentType: PrecipType = p.precip > 0 ? p.type : next.precip > 0 ? next.type : "none";
-        const segPath = `M ${f(precipPts[i].x)} ${f(precipPts[i].y)} L ${f(precipPts[i+1].x)} ${f(precipPts[i+1].y)}`;
+        const { cp1, cp2 } = catmullControlPoints(precipPts, i);
+        const segPath = `M ${f(precipPts[i].x)} ${f(precipPts[i].y)} C ${f(cp1.x)} ${f(cp1.y)}, ${f(cp2.x)} ${f(cp2.y)}, ${f(precipPts[i+1].x)} ${f(precipPts[i+1].y)}`;
         return (
           <path key={`pr-${i}`} d={segPath}
             fill="none" stroke={segmentType === "none" ? noPrecipitationColor : PRECIP_COLORS[segmentType]} strokeWidth="2.4" strokeLinecap="round" />
