@@ -567,38 +567,52 @@ export default function App() {
     );
   }, []);
 
-  const searchLocations = async () => {
+  useEffect(() => {
     const query = searchText.trim();
-    if (!query) return;
-    setSearching(true);
-    setSearchError(null);
-    setSearchResults([]);
-    try {
-      const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
-      url.searchParams.set("name", query);
-      url.searchParams.set("count", "10");
-      url.searchParams.set("language", "en");
-      url.searchParams.set("format", "json");
-      url.searchParams.set("countryCode", "US");
-      const response = await fetch(url.toString());
-      if (!response.ok) throw new Error("Location search failed");
-      const json = await response.json();
-      const results: LocationChoice[] = (json.results ?? [])
-        .filter((item: GeocodingResult) => item.country_code === "US")
-        .map((item: GeocodingResult) => ({
-          name: item.name,
-          region: item.admin1 ?? "United States",
-          latitude: item.latitude,
-          longitude: item.longitude,
-        }));
-      setSearchResults(results);
-      if (results.length === 0) setSearchError("No U.S. locations found. Try a city or ZIP code.");
-    } catch {
-      setSearchError("Could not search locations. Please try again.");
-    } finally {
+    if (!query) {
+      setSearchResults([]);
+      setSearchError(null);
       setSearching(false);
+      return;
     }
-  };
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setSearching(true);
+      setSearchError(null);
+      try {
+        const url = new URL("https://geocoding-api.open-meteo.com/v1/search");
+        url.searchParams.set("name", query);
+        url.searchParams.set("count", "10");
+        url.searchParams.set("language", "en");
+        url.searchParams.set("format", "json");
+        url.searchParams.set("countryCode", "US");
+        const response = await fetch(url.toString(), { signal: controller.signal });
+        if (!response.ok) throw new Error("Location search failed");
+        const json = await response.json();
+        const results: LocationChoice[] = (json.results ?? [])
+          .filter((item: GeocodingResult) => item.country_code === "US")
+          .map((item: GeocodingResult) => ({
+            name: item.name,
+            region: item.admin1 ?? "United States",
+            latitude: item.latitude,
+            longitude: item.longitude,
+          }));
+        setSearchResults(results);
+        setSearchError(results.length === 0 ? "No U.S. locations found. Try a city or ZIP code." : null);
+      } catch (error) {
+        if (error instanceof Error && error.name === "AbortError") return;
+        setSearchError("Could not search locations. Please try again.");
+      } finally {
+        if (!controller.signal.aborted) setSearching(false);
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [searchText]);
 
   const chooseLocation = (nextLocation: LocationChoice) => {
     locationSelectionRef.current += 1;
@@ -654,7 +668,7 @@ export default function App() {
             <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
           </div>
           <p className="text-sm" style={{ color: "#93c5fd" }}>
-            {isCurrentLocation ? `Your Location * ${location.name}` : `${location.name} · ${location.region}`}
+            {isCurrentLocation ? `Your Location · ${location.name}` : `${location.name} · ${location.region}`}
           </p>
           <p className="mt-1 text-[10px] text-slate-400">{locationStatus}</p>
         </div>
@@ -663,20 +677,18 @@ export default function App() {
       {/* Location search and favorites */}
       <div className="w-full rounded-2xl border border-white/10 p-4 mb-5"
         style={{ background: "rgba(10,22,44,0.88)" }}>
-        <form onSubmit={(event) => { event.preventDefault(); void searchLocations(); }} className="flex gap-2">
+        <div>
           <input
             type="search"
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
             placeholder="Search any U.S. city or ZIP code"
             aria-label="Search U.S. locations"
-            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white placeholder:text-slate-400 outline-none focus:border-blue-300"
+            aria-busy={searching}
+            className="w-full min-w-0 rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-sm text-white placeholder:text-slate-400 outline-none focus:border-blue-300"
           />
-          <button type="submit" disabled={searching || !searchText.trim()}
-            className="rounded-lg bg-blue-400/25 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50">
-            {searching ? "…" : "Search"}
-          </button>
-        </form>
+          {searching && <p className="mt-1.5 text-[10px] text-slate-400">Searching…</p>}
+        </div>
         {searchError && <p className="mt-2 text-xs text-amber-200">{searchError}</p>}
         {searchResults.length > 0 && (
           <div className="mt-2 space-y-1">
@@ -691,10 +703,10 @@ export default function App() {
           </div>
         )}
         <div className="mt-3 flex items-center justify-between gap-2">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Favorites on this device</p>
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Favorites</p>
           <button type="button" onClick={toggleFavorite}
             className="text-xs font-semibold text-blue-200 hover:text-white">
-            {isFavorite ? "★ Remove favorite" : "☆ Save current location"}
+            {isFavorite ? "★ Remove favorite" : "☆ Save location"}
           </button>
         </div>
         {favorites.length > 0 ? (
