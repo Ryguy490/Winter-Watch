@@ -670,11 +670,11 @@ export default function App() {
           style={{ background: "rgba(8,18,38,0.72)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.10)" }}>
           <div className="flex items-center gap-2.5 mb-0.5">
             <img
-              src="/winter-watch-icon.png"
+              src="/winter-watch-logo-transparent.png"
               alt=""
               width={40}
               height={40}
-              className="rounded-[22%] object-cover"
+              className="object-contain"
               aria-hidden="true"
             />
             <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
