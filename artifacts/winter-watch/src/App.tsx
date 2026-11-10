@@ -378,13 +378,12 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
         const segPath = `M ${f(precipPts[i].x)} ${f(precipPts[i].y)} C ${f(cp1.x)} ${f(cp1.y)}, ${f(cp2.x)} ${f(cp2.y)}, ${f(precipPts[i+1].x)} ${f(precipPts[i+1].y)}`;
         const baseline = TP + CH;
         const areaPath = `${segPath} L ${f(precipPts[i + 1].x)} ${f(baseline)} L ${f(precipPts[i].x)} ${f(baseline)} Z`;
+        if (p.precip <= 0 && next.precip <= 0) return null;
         return (
           <g key={`pr-${i}`}>
-            {p.precip > 0 || next.precip > 0 ? (
-              <path d={areaPath} fill={PRECIP_COLORS[segmentType]} opacity="0.16" />
-            ) : null}
+            <path d={areaPath} fill={PRECIP_COLORS[segmentType]} opacity="0.16" />
             <path d={segPath} fill="none"
-              stroke={segmentType === "none" ? noPrecipitationColor : PRECIP_COLORS[segmentType]}
+              stroke={PRECIP_COLORS[segmentType]}
               strokeWidth="2.4" strokeLinecap="round" />
           </g>
         );
