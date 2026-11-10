@@ -317,8 +317,11 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
   const tempPts = hasGraphData
     ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp, tempMin, tempMax) }))
     : [];
-  // Plot zero at the bottom baseline and positive precipitation as upward peaks.
-  const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip) })) : [];
+  // Keep the precipitation curve a few pixels above the bottom axis so it
+  // never visually merges with the baseline, including at zero-valued endpoints.
+  const precipPts = hasGraphData
+    ? points.map((p, i) => ({ x: ptX(i, n), y: Math.max(TP, precipY(p.precip) - 2) }))
+    : [];
   const noPrecipitationColor = "#a1a1aa";
   // Hourly precipitation amount (inches) determines the intensity tier.
   // The tiers are fixed so different selected days remain comparable.
@@ -456,7 +459,8 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
       {/* Axes */}
       <line x1={LP} y1={TP} x2={LP} y2={TP + CH} stroke="#1e3a5f" strokeWidth="1" />
       <line x1={LP + CW} y1={TP} x2={LP + CW} y2={TP + CH} stroke="#1e3a5f" strokeWidth="1" />
-      <line x1={LP} y1={TP + CH} x2={LP + CW} y2={TP + CH} stroke="#1e3a5f" strokeWidth="1" />
+      {/* Persistent grey bottom baseline, including completely dry forecasts. */}
+      <line x1={LP} y1={TP + CH} x2={LP + CW} y2={TP + CH} stroke={noPrecipitationColor} strokeWidth="1.25" />
     </svg>
   );
 }
