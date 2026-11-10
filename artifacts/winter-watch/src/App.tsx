@@ -383,7 +383,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
         const areaPath = `${segPath} L ${f(precipPts[i + 1].x)} ${f(baseline)} L ${f(precipPts[i].x)} ${f(baseline)} Z`;
         if (p.precip <= 0 && next.precip <= 0) {
           return <path key={`pr-dry-${i}`} d={segPath} fill="none"
-            stroke={noPrecipitationColor} strokeWidth="1.8" strokeLinecap="round" />;
+            stroke={noPrecipitationColor} strokeWidth="2.4" strokeLinecap="round" />;
         }
         return (
           <g key={`pr-${i}`}>
