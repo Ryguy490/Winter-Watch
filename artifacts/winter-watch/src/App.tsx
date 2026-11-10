@@ -241,7 +241,7 @@ function precipY(p: number) {
   // Zero precipitation sits on the bottom baseline; increasing amounts rise upward.
   const normalized = Math.max(0, Math.min(p, MAX_PRECIP)) / MAX_PRECIP;
   return TP + CH * (1 - normalized);
-  }
+}
 
 // Catmull-Rom control points for smooth bezier segments
 function catmullControlPoints(pts: {x:number; y:number}[], i: number) {
@@ -317,7 +317,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
   const tempPts = hasGraphData
     ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp, tempMin, tempMax) }))
     : [];
-  // Lift zero values slightly above the baseline so a dry-weather line remains visible.
+  // Plot zero at the bottom baseline and positive precipitation as upward peaks.
   const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip) })) : [];
   const noPrecipitationColor = "#a1a1aa";
   // Hourly precipitation amount (inches) determines the intensity tier.
