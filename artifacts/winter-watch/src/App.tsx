@@ -56,11 +56,11 @@ interface SnowData {
 }
 
 const PRECIP_COLORS: Record<PrecipType, string> = {
-  snow:  "#78a9d4",
-  ice:   "#c58da9",
-  rain:  "#83b69a",
-  mixed: "#a99acb",
-  none:  "#33465d",
+  snow:  "#60a5fa",
+  ice:   "#f472b6",
+  rain:  "#4ade80",
+  mixed: "#c084fc",
+  none:  "#1e3a5f",
 };
 
 const LEGEND_ITEMS: { type: PrecipType; label: string }[] = [
@@ -279,12 +279,12 @@ function smoothPath(pts: {x:number; y:number}[]): string {
 // Map Fahrenheit temperatures to a cool-to-warm color scale.
 function temperatureColor(temp: number): string {
   const stops = [
-    { temp: 10, color: [110, 153, 190] },
-    { temp: 25, color: [125, 174, 196] },
-    { temp: 40, color: [151, 187, 185] },
-    { temp: 55, color: [190, 185, 145] },
-    { temp: 70, color: [207, 157, 119] },
-    { temp: 85, color: [199, 129, 121] },
+    { temp: 10, color: [59, 130, 246] },
+    { temp: 25, color: [34, 211, 238] },
+    { temp: 40, color: [45, 212, 191] },
+    { temp: 55, color: [250, 204, 21] },
+    { temp: 70, color: [251, 146, 60] },
+    { temp: 85, color: [239, 68, 68] },
   ];
   const bounded = Math.max(stops[0].temp, Math.min(stops[stops.length - 1].temp, temp));
   const upperIndex = stops.findIndex((stop) => stop.temp >= bounded);
@@ -662,12 +662,12 @@ export default function App() {
   }, [load]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 py-8 max-w-lg mx-auto">
+    <div className="min-h-screen flex flex-col items-center px-4 py-10 max-w-md mx-auto">
 
       {/* Header */}
       <div className="w-full mb-7 text-center">
         <div className="inline-flex flex-col items-center gap-1 rounded-2xl px-6 py-4"
-          style={{ background: "rgba(12,24,42,0.82)", backdropFilter: "blur(14px)", border: "1px solid rgba(190,210,230,0.10)" }}>
+          style={{ background: "rgba(8,18,38,0.72)", backdropFilter: "blur(10px)", border: "1px solid rgba(255,255,255,0.10)" }}>
           <div className="flex items-center gap-2.5 mb-0.5">
             <img
               src="/winter-watch-icon.png"
@@ -679,7 +679,7 @@ export default function App() {
             />
             <h1 className="text-2xl font-bold tracking-tight text-white">Winter Watch</h1>
           </div>
-          <p className="text-sm" style={{ color: "#a8bfd5" }}>
+          <p className="text-sm" style={{ color: "#93c5fd" }}>
             {isCurrentLocation ? `Your Location · ${location.name}` : `${location.name} · ${location.region}`}
           </p>
           <p className="mt-1 text-[10px] text-slate-400">{locationStatus}</p>
@@ -688,7 +688,7 @@ export default function App() {
 
       {/* Location search and favorites */}
       <div className="w-full rounded-2xl border border-white/10 p-4 mb-5"
-        style={{ background: "rgba(12,24,42,0.90)" }}>
+        style={{ background: "rgba(10,22,44,0.88)" }}>
         <div>
           <input
             type="search"
@@ -744,7 +744,7 @@ export default function App() {
 
       {/* Stats card */}
       <div className="w-full rounded-2xl border border-border p-6 mb-5 shadow-lg"
-        style={{ background: "rgba(12,24,42,0.90)", backdropFilter: "blur(8px)" }}>
+        style={{ background: "rgba(10,22,44,0.88)", backdropFilter: "blur(8px)" }}>
         {error && !data ? (
           <div className="flex flex-col items-center gap-2 py-4 text-center">
             <AlertIcon />
@@ -865,12 +865,12 @@ export default function App() {
                   <div className="hidden sm:flex items-center gap-3">
                     {chartMode === "precipitation" && (
                       <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <span className="inline-block w-5 h-[3px] rounded-full" style={{ background: "#c4a77d" }} />
+                        <span className="inline-block w-5 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #3b82f6, #22d3ee, #2dd4bf, #facc15, #fb923c, #ef4444)", boxShadow: "0 0 0 1px rgba(7,20,38,0.9)" }} />
                         Temp
                       </span>
                     )}
                     <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                      <span className="inline-block w-4 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #83b69a 0 25%, #a99acb 25% 50%, #78a9d4 50% 75%, #c58da9 75%)" }} />
+                      <span className="inline-block w-4 h-[3px] rounded-full" style={{ background: "linear-gradient(90deg, #4ade80 0 25%, #c084fc 25% 50%, #60a5fa 50% 75%, #f472b6 75%)" }} />
                       Precip
                     </span>
                   </div>
@@ -899,7 +899,7 @@ export default function App() {
       {/* Check Again */}
       <button onClick={() => void load()} disabled={loading}
         className="w-full py-4 rounded-2xl font-bold text-base tracking-wide transition-all active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed hover:brightness-110 mb-4 shadow-md"
-        style={{ background: "#789fbd", color: "#091522" }}>
+        style={{ background: "hsl(210 82% 58%)", color: "hsl(220 30% 7%)" }}>
         {loading ? (
           <span className="flex items-center justify-center gap-2"><Spinner small />Checking…</span>
         ) : "Check Again"}
