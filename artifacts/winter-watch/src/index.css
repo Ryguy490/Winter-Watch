@@ -71,3 +71,11 @@
     min-height: 100vh;
   }
 }
+
+
+/* Keep the full-height chart on phones; compress it vertically on wider screens. */
+@media (min-width: 768px) {
+  .hourly-weather-chart {
+    aspect-ratio: 320 / 130;
+  }
+}
