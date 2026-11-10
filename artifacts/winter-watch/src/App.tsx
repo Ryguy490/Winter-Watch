@@ -669,7 +669,7 @@ export default function App() {
   }, [load]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center px-4 py-10 max-w-md mx-auto">
+    <div className="min-h-screen w-full flex flex-col items-center px-4 py-10 mx-auto max-w-md md:max-w-4xl lg:max-w-5xl">
 
       {/* Header */}
       <div className="w-full mb-7 text-center">
