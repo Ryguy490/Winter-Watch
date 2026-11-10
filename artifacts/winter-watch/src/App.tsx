@@ -855,7 +855,7 @@ export default function App() {
 
             {/* Selected-day hourly chart, with a totals-only fallback */}
             {(
-              <div className="mt-1">
+              <div className="mt-1 mx-auto w-full max-w-2xl">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">Hour-by-hour</p>
                   <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.04] p-0.5" role="group" aria-label="Graph display">
@@ -885,20 +885,21 @@ export default function App() {
 
                 <WeatherChart points={selectedDay?.points ?? []} mode={chartMode} />
 
-                <div className="flex flex-wrap gap-x-4 gap-y-1.5 mt-3">
-                  {LEGEND_ITEMS.map(({ type, label }) => (
-                    <div key={type} className="flex items-center gap-1.5">
-                      <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PRECIP_COLORS[type] }} />
-                      <span className="text-[10px] text-muted-foreground">{label}</span>
-                    </div>
-                  ))}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                    {LEGEND_ITEMS.map(({ type, label }) => (
+                      <div key={type} className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: PRECIP_COLORS[type] }} />
+                        <span className="text-[10px] text-muted-foreground">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[10px] whitespace-nowrap" style={{ color: "#cbd5e1" }}>
+                    Updated {formatTime(data.lastUpdated)}
+                  </p>
                 </div>
               </div>
             )}
-
-            <p className="text-[10px] text-right" style={{ color: "#cbd5e1" }}>
-              Updated {formatTime(data.lastUpdated)}
-            </p>
           </div>
         ) : null}
       </div>
