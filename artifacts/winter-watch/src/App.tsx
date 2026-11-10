@@ -227,7 +227,7 @@ function formatHour(d: Date)     { return d.toLocaleTimeString([], { hour: "nume
 function formatTime(d: Date)     { return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true }); }
 
 // ── Chart layout ─────────────────────────────────────────────────────────────
-const VW = 320, VH = 158;
+const VW = 320, VH = 130;
 const LP = 56, RP = 34, TP = 10, BP = 28;
 const CW = VW - LP - RP;
 const CH = VH - TP - BP;
