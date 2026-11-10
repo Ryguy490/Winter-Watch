@@ -462,8 +462,8 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
       {/* Axes */}
       <line x1={LP} y1={TP} x2={LP} y2={TP + CH} stroke="#1e3a5f" strokeWidth="1" />
       <line x1={LP + CW} y1={TP} x2={LP + CW} y2={TP + CH} stroke="#1e3a5f" strokeWidth="1" />
-      {/* Persistent grey bottom baseline, including completely dry forecasts. */}
-      <line x1={LP} y1={TP + CH} x2={LP + CW} y2={TP + CH} stroke={noPrecipitationColor} strokeWidth="1.25" />
+      {/* Navy bottom edge completes the chart outline; dry hours use the separate grey line above it. */}
+      <line x1={LP} y1={TP + CH} x2={LP + CW} y2={TP + CH} stroke="#1e3a5f" strokeWidth="1" />
     </svg>
   );
 }
