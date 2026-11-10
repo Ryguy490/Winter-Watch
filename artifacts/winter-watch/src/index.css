@@ -62,12 +62,28 @@
   body {
     @apply font-sans antialiased text-foreground;
     background-color: #0b1628;
-    background-image: url('/winter-background.jpg');
+    background-image: linear-gradient(rgba(5, 13, 25, 0.42), rgba(5, 13, 25, 0.58)), url('/winter-background.jpg');
     background-position: center center;
     background-size: cover;
     background-repeat: no-repeat;
     background-attachment: fixed;
     image-rendering: auto;
     min-height: 100vh;
+  }
+}
+
+
+/* Quiet, consistent interaction states */
+@layer base {
+  :focus-visible {
+    outline: 2px solid rgba(154, 190, 218, 0.9);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: rgba(120, 159, 189, 0.32);
+    color: #f4f7fa;
+  }
+  button, input {
+    -webkit-tap-highlight-color: transparent;
   }
 }
