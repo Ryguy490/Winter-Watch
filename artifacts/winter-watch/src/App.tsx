@@ -237,7 +237,11 @@ function ptX(i: number, n: number) { return LP + (i / (n - 1)) * CW; }
 function tempY(t: number, min: number, max: number) {
   return TP + (1 - (t - min) / (max - min)) * CH;
 }
-function precipY(p: number)         { return TP + (1 - p / MAX_PRECIP) * CH; }
+function precipY(p: number) {
+  // Zero precipitation sits on the bottom baseline; increasing amounts rise upward.
+  const normalized = Math.max(0, Math.min(p, MAX_PRECIP)) / MAX_PRECIP;
+  return TP + CH * (1 - normalized);
+  }
 
 // Catmull-Rom control points for smooth bezier segments
 function catmullControlPoints(pts: {x:number; y:number}[], i: number) {
@@ -314,7 +318,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
     ? points.map((p, i) => ({ x: ptX(i, n), y: tempY(p.temp, tempMin, tempMax) }))
     : [];
   // Lift zero values slightly above the baseline so a dry-weather line remains visible.
-  const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip === 0 ? 0.015 : p.precip) })) : [];
+  const precipPts = hasGraphData ? points.map((p, i) => ({ x: ptX(i, n), y: precipY(p.precip) })) : [];
   const noPrecipitationColor = "#a1a1aa";
   // Hourly precipitation amount (inches) determines the intensity tier.
   // The tiers are fixed so different selected days remain comparable.
@@ -372,9 +376,18 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
         const segmentType: PrecipType = p.precip > 0 ? p.type : next.precip > 0 ? next.type : "none";
         const { cp1, cp2 } = catmullControlPoints(precipPts, i);
         const segPath = `M ${f(precipPts[i].x)} ${f(precipPts[i].y)} C ${f(cp1.x)} ${f(cp1.y)}, ${f(cp2.x)} ${f(cp2.y)}, ${f(precipPts[i+1].x)} ${f(precipPts[i+1].y)}`;
-        return <path key={`pr-${i}`} d={segPath} fill="none"
-          stroke={segmentType === "none" ? noPrecipitationColor : PRECIP_COLORS[segmentType]}
-          strokeWidth="2.4" strokeLinecap="round" />;
+        const baseline = TP + CH;
+        const areaPath = `${segPath} L ${f(precipPts[i + 1].x)} ${f(baseline)} L ${f(precipPts[i].x)} ${f(baseline)} Z`;
+        return (
+          <g key={`pr-${i}`}>
+            {p.precip > 0 || next.precip > 0 ? (
+              <path d={areaPath} fill={PRECIP_COLORS[segmentType]} opacity="0.16" />
+            ) : null}
+            <path d={segPath} fill="none"
+              stroke={segmentType === "none" ? noPrecipitationColor : PRECIP_COLORS[segmentType]}
+              strokeWidth="2.4" strokeLinecap="round" />
+          </g>
+        );
       })}
       {mode === "intensity" && hasGraphData && points.map((point, i) => {
         const intensity = intensityFor(point.precip);
@@ -456,7 +469,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [todayKey, setTodayKey] = useState(() => getDateKey(new Date()));
   const [selectedDayKey, setSelectedDayKey] = useState(() => getDateKey(new Date()));
-  const [precipSelection, setPrecipSelection] = useState<PrecipSelection>("snow");
+  const [precipSelection, setPrecipSelection] = useState<PrecipSelection>("total");
   const [chartMode, setChartMode] = useState<ChartMode>("precipitation");
   const [location, setLocation] = useState<LocationChoice>(DEFAULT_LOCATION);
   const [favorites, setFavorites] = useState<LocationChoice[]>(() => {
@@ -819,7 +832,7 @@ export default function App() {
               <span className="text-3xl font-bold text-primary tabular-nums">
                 {metrics.total === 0
                   ? "0"
-                  : isYesterdaySelected
+                  : isYesterdaySelected || metrics.totalLow === metrics.totalHigh
                     ? metrics.total.toFixed(1)
                     : `${metrics.totalLow}–${metrics.totalHigh}`}
                 <span className="text-base font-normal text-muted-foreground ml-1">in</span>
