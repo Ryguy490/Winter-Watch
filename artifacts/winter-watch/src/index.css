@@ -74,9 +74,12 @@
 
 
 
-/* On iPad-sized screens, scale the whole chart to two-thirds without stretching SVG text. */
+/* On iPad-sized screens, scale only the graph; keep SVG text proportional. */
 @media (min-width: 768px) and (max-width: 1400px) {
-  .hourly-chart-container {
+  .hourly-weather-chart {
+    display: block;
     width: 66.6667%;
+    height: auto;
+    margin-inline: auto;
   }
 }
