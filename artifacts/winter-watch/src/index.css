@@ -73,9 +73,13 @@
 }
 
 
-/* Keep the full-height chart on phones; compress it vertically on wider screens. */
-@media (min-width: 768px) {
+
+/* On iPad-sized screens, scale only the graph; keep SVG text proportional. */
+@media (min-width: 768px) and (max-width: 1400px) {
   .hourly-weather-chart {
-    aspect-ratio: 320 / 130;
+    display: block;
+    width: 66.6667%;
+    height: auto;
+    margin-inline: auto;
   }
 }

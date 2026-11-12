@@ -344,7 +344,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
   const xAxisTicks = [0, 4, 8, 12, 16, 20].filter((i) => i < n);
 
   return (
-    <svg className="hourly-weather-chart" viewBox={`0 0 ${VW} ${VH}`} width="100%" preserveAspectRatio="none" style={{ overflow: "visible" }}>
+    <svg className="hourly-weather-chart" viewBox={`0 0 ${VW} ${VH}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ overflow: "visible" }}>
       <defs>
         <pattern id="no-graph-hatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="10" stroke="#9ca3af" strokeWidth="2" opacity="0.42" />
