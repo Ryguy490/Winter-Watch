@@ -855,7 +855,7 @@ export default function App() {
 
             {/* Selected-day hourly chart, with a totals-only fallback */}
             {(
-              <div className="hourly-chart-container mt-1 mx-auto w-full max-w-4xl">
+              <div className="mt-1 mx-auto w-full max-w-4xl">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">Hour-by-hour</p>
                   <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.04] p-0.5" role="group" aria-label="Graph display">
