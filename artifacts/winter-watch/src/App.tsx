@@ -344,7 +344,7 @@ function WeatherChart({ points, mode }: { points: HourPoint[]; mode: ChartMode }
   const xAxisTicks = [0, 4, 8, 12, 16, 20].filter((i) => i < n);
 
   return (
-    <svg className="hourly-weather-chart" viewBox={`0 0 ${VW} ${VH}`} width="100%" preserveAspectRatio="none" style={{ overflow: "visible" }}>
+    <svg className="hourly-weather-chart" viewBox={`0 0 ${VW} ${VH}`} width="100%" preserveAspectRatio="xMidYMid meet" style={{ overflow: "visible" }}>
       <defs>
         <pattern id="no-graph-hatch" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
           <line x1="0" y1="0" x2="0" y2="10" stroke="#9ca3af" strokeWidth="2" opacity="0.42" />
@@ -855,7 +855,7 @@ export default function App() {
 
             {/* Selected-day hourly chart, with a totals-only fallback */}
             {(
-              <div className="mt-1 mx-auto w-full max-w-4xl">
+              <div className="hourly-chart-container mt-1 mx-auto w-full max-w-4xl">
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs text-muted-foreground">Hour-by-hour</p>
                   <div className="inline-flex rounded-lg border border-white/10 bg-white/[0.04] p-0.5" role="group" aria-label="Graph display">
